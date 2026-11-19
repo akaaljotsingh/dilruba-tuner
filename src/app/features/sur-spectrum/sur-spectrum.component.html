@@ -1,0 +1,152 @@
+<div class="page spectrum">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Mode two</span>
+      <h2>Sur Spectrum</h2>
+    </div>
+    <div class="head-actions">
+      <app-listen-button />
+    </div>
+  </header>
+  <app-audio-status />
+
+  <section class="readout panel" aria-live="polite">
+    <div class="now" [style.--swara-color]="readingColor()">
+      <span class="eyebrow">Playing now</span>
+      @if (reading(); as r) {
+        <div class="now-row">
+          <span class="now-swara display" [class.held]="pitch().held"
+            ><app-swara-label [swara]="r.swara" [saptak]="r.saptak.offset"
+          /></span>
+          <div class="now-meta">
+            <span class="west">{{ r.western.label }} · {{ r.saptak.name }}</span>
+            <span class="numeric muted"
+              >{{ pitch().frequency | hz: 1 }} · {{ r.cents | cents: 0 }}</span
+            >
+          </div>
+        </div>
+      } @else {
+        <div class="now-row">
+          <span class="now-swara display faint">—</span>
+          <div class="now-meta">
+            <span class="muted">{{
+              engine.listening() ? 'Play a note…' : 'Start listening to see your sur'
+            }}</span>
+          </div>
+        </div>
+      }
+    </div>
+    <div class="level" aria-label="Input level">
+      <span class="eyebrow">Input</span>
+      <div class="level-bar"><i [style.width.%]="engine.listening() ? levelPct() : 0"></i></div>
+    </div>
+  </section>
+
+  <section class="viz panel">
+    <div class="toolbar">
+      <div class="legend" aria-label="Legend">
+        <span><i class="lg fund"></i>Played note</span>
+        <span><i class="lg harm"></i>Harmonic</span>
+        <span><i class="lg res"></i>Resonance</span>
+        <span><i class="lg low"></i>Uncertain</span>
+      </div>
+      <div class="tools">
+        <button
+          type="button"
+          class="btn btn-sm"
+          [class.on]="settings.settings().showHarmonics"
+          (click)="toggle('showHarmonics')"
+          [attr.aria-pressed]="settings.settings().showHarmonics"
+        >
+          Harmonics
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm"
+          [class.on]="settings.settings().showFrequencyLabels"
+          (click)="toggle('showFrequencyLabels')"
+          [attr.aria-pressed]="settings.settings().showFrequencyLabels"
+        >
+          Hz
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm"
+          [class.on]="follow()"
+          (click)="follow.set(!follow())"
+          [attr.aria-pressed]="follow()"
+        >
+          Follow
+        </button>
+        <span class="zoom">
+          <button type="button" class="icon-btn" aria-label="Zoom out" (click)="zoomBy(1 / 1.3)">
+            <app-icon name="zoom-out" />
+          </button>
+          <button type="button" class="icon-btn" aria-label="Zoom in" (click)="zoomBy(1.3)">
+            <app-icon name="zoom-in" />
+          </button>
+        </span>
+      </div>
+    </div>
+
+    <div
+      class="scroller"
+      #scroller
+      tabindex="0"
+      aria-label="Live pitch spectrum across saptaks. Scroll horizontally for more octaves."
+      role="img"
+    >
+      <canvas #canvas></canvas>
+      @if (canvasUnsupported()) {
+        <p class="unsupported">
+          This browser cannot draw the spectrum (Canvas 2D unavailable). The “Playing now” reading
+          above still works.
+        </p>
+      }
+    </div>
+
+    <div class="range">
+      <span class="faint">Saptaks shown</span>
+      <span class="range-ctl">
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm"
+          (click)="setRange('low', -1)"
+          [disabled]="saptakRange().low <= -3"
+        >
+          + Lower
+        </button>
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm"
+          (click)="setRange('low', 1)"
+          [disabled]="saptakRange().low >= 0"
+        >
+          − Lower
+        </button>
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm"
+          (click)="setRange('high', -1)"
+          [disabled]="saptakRange().high <= 0"
+        >
+          − Upper
+        </button>
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm"
+          (click)="setRange('high', 1)"
+          [disabled]="saptakRange().high >= 3"
+        >
+          + Upper
+        </button>
+      </span>
+    </div>
+  </section>
+
+  <p class="note faint">
+    Line brightness and height show the relative strength of each sound the microphone hears (not
+    calibrated loudness). Overtones of the note you play are drawn as harmonics, so they are not
+    mistaken for separate swaras.
+  </p>
+</div>

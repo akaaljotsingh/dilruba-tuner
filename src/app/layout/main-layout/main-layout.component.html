@@ -1,0 +1,67 @@
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="app-header">
+  <div class="inner">
+    <a routerLink="/" class="brand" aria-label="Dilruba Sur Tuner – home">
+      <app-logo [size]="34" />
+      <span class="brand-name">Dilruba <em>Sur Tuner</em></span>
+    </a>
+
+    <nav class="top-nav" aria-label="Primary">
+      @for (item of nav; track item.path) {
+        <a
+          [routerLink]="item.path"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: !!item.exact }"
+          ariaCurrentWhenActive="page"
+          >{{ item.label }}</a
+        >
+      }
+    </nav>
+
+    <div class="actions">
+      @if (!pwa.online()) {
+        <span
+          class="offline"
+          title="Offline – the tuner keeps working, audio is processed on this device"
+        >
+          <app-icon name="offline" /><span class="offline-text">Offline</span>
+        </span>
+      }
+      @if (engine.listening()) {
+        <span class="live" title="Microphone is active"
+          ><i></i><span class="sr-only">Listening</span></span
+        >
+      }
+      <app-tonic-picker />
+      <a routerLink="/settings" class="icon-btn settings-link" aria-label="Settings"
+        ><app-icon name="settings"
+      /></a>
+    </div>
+  </div>
+</header>
+
+@if (pwa.updateReady()) {
+  <div class="update" role="status">
+    <span>A new version of the tuner is ready.</span>
+    <button type="button" class="btn btn-sm btn-primary" (click)="pwa.applyUpdate()">Reload</button>
+  </div>
+}
+
+<main id="main" tabindex="-1">
+  <router-outlet />
+</main>
+
+<nav class="bottom-nav" aria-label="Primary">
+  @for (item of nav; track item.path) {
+    <a
+      [routerLink]="item.path"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: !!item.exact }"
+      ariaCurrentWhenActive="page"
+    >
+      <app-icon [name]="item.icon" />
+      <span>{{ item.short }}</span>
+    </a>
+  }
+</nav>

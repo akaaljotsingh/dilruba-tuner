@@ -1,0 +1,11 @@
+/* Type-checks the AudioWorklet bundle (see scripts/build-worklet.mjs). */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "lib": ["ES2022", "DOM"],
+    "types": []
+  },
+  "files": ["src/app/core/audio/audio-worklet/sur-analysis.worklet.ts"]
+}

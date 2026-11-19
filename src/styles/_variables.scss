@@ -1,0 +1,107 @@
+// Design tokens. Runtime-switchable values are CSS custom properties;
+// SCSS variables are used for breakpoints and compile-time constants.
+
+$bp-sm: 560px;
+$bp-md: 820px;
+$bp-lg: 1120px;
+$content-max: 1180px;
+
+@mixin above($bp) {
+  @media (min-width: $bp) {
+    @content;
+  }
+}
+
+@mixin below($bp) {
+  @media (max-width: ($bp - 1px)) {
+    @content;
+  }
+}
+
+:root {
+  color-scheme: dark;
+
+  // Surfaces – deep charcoal
+  --bg: #121113;
+  --bg-elevated: #19171a;
+  --surface: #1e1b1f;
+  --surface-2: #262226;
+  --surface-3: #302b2f;
+  --line: rgba(236, 224, 202, 0.08);
+  --line-strong: rgba(236, 224, 202, 0.16);
+
+  // Ivory text
+  --text: #efe6d4;
+  --text-muted: #b2a794;
+  --text-faint: #7d7466;
+
+  // Accents
+  --gold: #c9a45c;
+  --gold-soft: rgba(201, 164, 92, 0.16);
+  --saffron: #e8913a;
+  --accent: var(--saffron);
+  --accent-soft: rgba(232, 145, 58, 0.15);
+  --accent-contrast: #1a1208;
+
+  // Tuning semantics
+  --in-tune: #8fc89a;
+  --in-tune-soft: rgba(143, 200, 154, 0.16);
+  --near: #d8c26a;
+  --off: #e07a4f;
+  --danger: #e2675a;
+
+  // Typography
+  --font-display: 'Cormorant Garamond', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --font-ui: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --text-scale: 1;
+
+  // Shape & motion
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --dur-fast: 140ms;
+  --dur: 260ms;
+  --dur-slow: 480ms;
+
+  --header-h: 60px;
+  --nav-h: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+:root[data-theme='midnight'] {
+  --bg: #050505;
+  --bg-elevated: #0c0b0c;
+  --surface: #111011;
+  --surface-2: #171516;
+  --surface-3: #1f1c1e;
+}
+
+:root[data-accent='gold'] {
+  --accent: var(--gold);
+  --accent-soft: var(--gold-soft);
+}
+
+:root[data-accent='rose'] {
+  --accent: #d9776f;
+  --accent-soft: rgba(217, 119, 111, 0.15);
+}
+
+:root[data-text-scale='large'] {
+  --text-scale: 1.12;
+}
+
+:root[data-reduce-motion='true'] {
+  --dur-fast: 0ms;
+  --dur: 0ms;
+  --dur-slow: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+    --dur-slow: 0ms;
+  }
+}

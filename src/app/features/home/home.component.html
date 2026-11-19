@@ -1,0 +1,197 @@
+<div class="page home">
+  <section class="hero animate-in">
+    <span class="eyebrow">Dilruba · Hindustani Sangeet</span>
+    <h1>Tune Every Wire.<br /><span class="accent">Find Every Sur.</span></h1>
+    <p class="lede">A precise tuner designed for Dilruba and Indian classical music.</p>
+
+    <div class="hero-controls">
+      <div class="tonic-block">
+        <span class="eyebrow">Selected tonic</span>
+        <app-tonic-picker [large]="true" />
+      </div>
+      <div class="listen-block">
+        <app-listen-button />
+        <app-audio-status />
+      </div>
+    </div>
+  </section>
+
+  <section class="modes" aria-label="Tuning modes">
+    <a routerLink="/tuner" class="mode panel tuner-mode">
+      <div class="art" aria-hidden="true">
+        <svg viewBox="0 0 240 90">
+          <rect
+            x="1"
+            y="20"
+            width="238"
+            height="50"
+            rx="10"
+            fill="none"
+            stroke="currentColor"
+            stroke-opacity=".14"
+          />
+          <rect x="108" y="20" width="24" height="50" fill="var(--in-tune)" fill-opacity=".14" />
+          @for (i of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; track i) {
+            <line
+              [attr.x1]="20 + i * 20"
+              [attr.x2]="20 + i * 20"
+              y1="70"
+              [attr.y2]="i % 5 === 0 ? 52 : 60"
+              stroke="currentColor"
+              stroke-opacity=".3"
+            />
+          }
+          <rect x="128" y="26" width="4" height="38" rx="2" fill="var(--in-tune)" class="needle" />
+        </svg>
+      </div>
+      <div class="mode-text">
+        <h2>Wire Tuner</h2>
+        <p>Tune individual Dilruba strings with real-time pitch guidance.</p>
+      </div>
+      <span class="go"><app-icon name="chevron-right" /></span>
+    </a>
+
+    <a routerLink="/spectrum" class="mode panel spectrum-mode">
+      <div class="art" aria-hidden="true">
+        <svg viewBox="0 0 240 90">
+          @for (x of [18, 38, 58, 78, 98, 118, 138, 158, 178, 198, 218]; track x) {
+            <line
+              [attr.x1]="x"
+              [attr.x2]="x"
+              y1="10"
+              y2="80"
+              stroke="currentColor"
+              stroke-opacity=".08"
+            />
+          }
+          <line
+            x1="58"
+            x2="58"
+            y1="12"
+            y2="80"
+            stroke="var(--accent)"
+            stroke-width="4"
+            stroke-linecap="round"
+          />
+          <line
+            x1="118"
+            x2="118"
+            y1="30"
+            y2="80"
+            stroke="var(--gold)"
+            stroke-width="3"
+            stroke-linecap="round"
+            opacity=".7"
+          />
+          <line
+            x1="158"
+            x2="158"
+            y1="44"
+            y2="80"
+            stroke="var(--gold)"
+            stroke-width="2"
+            stroke-linecap="round"
+            opacity=".45"
+          />
+          <line
+            x1="198"
+            x2="198"
+            y1="56"
+            y2="80"
+            stroke="var(--gold)"
+            stroke-width="2"
+            stroke-linecap="round"
+            opacity=".25"
+          />
+        </svg>
+      </div>
+      <div class="mode-text">
+        <h2>Sur Spectrum</h2>
+        <p>See live swaras, octaves, and musical frequencies as you play.</p>
+      </div>
+      <span class="go"><app-icon name="chevron-right" /></span>
+    </a>
+  </section>
+
+  <section class="instrument panel">
+    <div class="instrument-head">
+      <div>
+        <span class="eyebrow">Your instrument</span>
+        <h3>{{ instrument.instrument().name }}</h3>
+        <p class="muted summary">{{ summary() }}</p>
+      </div>
+      <a routerLink="/instrument" class="btn btn-sm">Configure</a>
+    </div>
+    <div class="main-strings">
+      @for (s of instrument.mainStrings(); track s.id) {
+        <a class="string-pill" [routerLink]="['/tuner']" [queryParams]="{ string: s.id }">
+          <span class="pill-name">{{ s.name }}</span>
+          <span class="pill-swara display"
+            ><app-swara-label [swara]="s.swara" [saptak]="s.saptak"
+          /></span>
+          <span class="pill-west numeric">{{ s.westernLabel }} · {{ s.targetFrequency | hz }}</span>
+        </a>
+      }
+    </div>
+  </section>
+
+  <section class="mapping" aria-labelledby="mapping-title">
+    <div class="ornament" aria-hidden="true">✦</div>
+    <h3 id="mapping-title" class="mapping-title">Swaras for Sa = {{ settings.tonicName() }}</h3>
+    <ol class="mapping-row">
+      @for (row of mapping(); track $index) {
+        <li [class.sa]="row.swara.semitone === 0">
+          <span class="m-swara display"
+            ><app-swara-label [swara]="row.swara" [saptak]="row.isUpperSa ? 1 : null" mode="short"
+          /></span>
+          <span class="m-name">{{ row.isUpperSa ? 'Upper Sa' : row.swara.name }}</span>
+          <span class="m-west">{{ row.western.name }}</span>
+        </li>
+      }
+    </ol>
+  </section>
+
+  <section class="tips panel">
+    <h3>How to tune a wire</h3>
+    <ol>
+      <li>Choose the wire in <a routerLink="/tuner">Wire Tuner</a> and play it on its own.</li>
+      <li>Wait for a stable pitch reading.</li>
+      <li>Tighten if the needle is left (flat); loosen if it is right (sharp).</li>
+      <li>Stop adjusting when the needle rests in the centre.</li>
+    </ol>
+    <p class="faint privacy">
+      All listening happens on this device. Nothing is recorded or uploaded, and the tuner works
+      offline once installed.
+    </p>
+  </section>
+
+  @if (pwa.installPlatform() !== 'installed') {
+    <section class="install panel">
+      <div>
+        <h3>Install the tuner</h3>
+        @switch (pwa.installPlatform()) {
+          @case ('prompt') {
+            <p class="muted">Add Dilruba Sur Tuner to your device for quick, offline access.</p>
+          }
+          @case ('ios') {
+            <p class="muted">
+              In Safari, tap <app-icon name="share" class="inline-icon" /> Share, then
+              <strong>Add to Home Screen</strong>.
+            </p>
+          }
+          @default {
+            <p class="muted">
+              Use your browser’s menu and choose <strong>Install app</strong> or
+              <strong>Add to Home screen</strong>.
+            </p>
+          }
+        }
+      </div>
+      @if (pwa.installPlatform() === 'prompt') {
+        <button type="button" class="btn btn-primary" (click)="install()">
+          <app-icon name="download" /> Install
+        </button>
+      }
+    </section>
+  }
+</div>

@@ -1,0 +1,147 @@
+<div class="page instrument">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Instrument configuration</span>
+      <h2>Strings &amp; Tuning</h2>
+    </div>
+    <button type="button" class="btn btn-sm" [class.danger]="confirmReset()" (click)="reset()">
+      <app-icon name="refresh" />
+      {{ confirmReset() ? 'Tap again to reset' : 'Reset to starter preset' }}
+    </button>
+  </header>
+
+  <section class="panel block">
+    <div class="grid-2">
+      <label class="field">
+        <span class="label">Instrument name</span>
+        <input
+          class="input"
+          [value]="store.instrument().name"
+          (change)="rename($event)"
+          maxlength="60"
+        />
+      </label>
+      <label class="field">
+        <span class="label">Madhya (middle) Sa octave</span>
+        <select class="select" (change)="setMadhyaOctave($event)">
+          @for (o of octaves; track o) {
+            <option [value]="o" [selected]="o === settings.settings().madhyaSaOctave">
+              Octave {{ o }} — {{ settings.tonicName() }}{{ o }}
+            </option>
+          }
+        </select>
+        <span class="hint"
+          >Madhya Sa = {{ madhyaSa().western.label }} · {{ madhyaSa().frequency | hz: 2 }}. All
+          saptaks are counted from here.</span
+        >
+      </label>
+    </div>
+  </section>
+
+  <section class="panel block">
+    <div class="block-head">
+      <div>
+        <h3>Main strings</h3>
+        <p class="muted">
+          Main 1 is the melody wire. The starter tuning (Ma · Sa · Mandra Pa · Mandra Sa) is an
+          editable example, not a fixed standard.
+        </p>
+      </div>
+      <div class="stepper" role="group" aria-label="Number of main strings">
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="Remove a main string"
+          (click)="store.setMainCount(store.mainCount() - 1)"
+          [disabled]="store.mainCount() <= limits.MIN_MAIN_STRINGS"
+        >
+          <app-icon name="minus" />
+        </button>
+        <output class="numeric" aria-live="polite">{{ store.mainCount() }}</output>
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="Add a main string"
+          (click)="store.setMainCount(store.mainCount() + 1)"
+          [disabled]="store.mainCount() >= limits.MAX_MAIN_STRINGS"
+        >
+          <app-icon name="plus" />
+        </button>
+      </div>
+    </div>
+    <div class="rows">
+      @for (s of store.mainStrings(); track s.id) {
+        <app-string-row [string]="s" />
+      }
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" (click)="store.resetMainStrings()">
+      Restore starter main tuning
+    </button>
+  </section>
+
+  <section class="panel block">
+    <div class="block-head">
+      <div>
+        <h3>Sympathetic strings · Taraf</h3>
+        <p class="muted">
+          Set how many tarabs your Dilruba has and tune each one individually, or fill them from a
+          thaat.
+        </p>
+      </div>
+      <div class="stepper" role="group" aria-label="Number of sympathetic strings">
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="Remove a sympathetic string"
+          (click)="store.setSympatheticCount(store.sympatheticCount() - 1)"
+          [disabled]="store.sympatheticCount() <= limits.MIN_SYMPATHETIC_STRINGS"
+        >
+          <app-icon name="minus" />
+        </button>
+        <output class="numeric" aria-live="polite">{{ store.sympatheticCount() }}</output>
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="Add a sympathetic string"
+          (click)="store.setSympatheticCount(store.sympatheticCount() + 1)"
+          [disabled]="store.sympatheticCount() >= limits.MAX_SYMPATHETIC_STRINGS"
+        >
+          <app-icon name="plus" />
+        </button>
+      </div>
+    </div>
+
+    @if (store.sympatheticCount() > 0) {
+      <div class="preset">
+        <label class="field">
+          <span class="label">Fill from thaat</span>
+          <select class="select" (change)="presetId.set($any($event.target).value)">
+            @for (p of presets; track p.id) {
+              <option [value]="p.id" [selected]="p.id === presetId()">
+                {{ p.name }} — {{ p.description }}
+              </option>
+            }
+          </select>
+        </label>
+        <label class="field">
+          <span class="label">Starting from</span>
+          <select class="select" (change)="presetStart.set(+$any($event.target).value)">
+            @for (sp of startSaptaks; track sp.offset) {
+              <option [value]="sp.offset" [selected]="sp.offset === presetStart()">
+                {{ sp.name }} Sa
+              </option>
+            }
+          </select>
+        </label>
+        <button type="button" class="btn" (click)="applyPreset()">Apply to all tarabs</button>
+      </div>
+      <div class="rows">
+        @for (s of store.sympatheticStrings(); track s.id) {
+          <app-string-row [string]="s" />
+        }
+      </div>
+    } @else {
+      <p class="faint">No sympathetic strings configured.</p>
+    }
+  </section>
+</div>

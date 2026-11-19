@@ -1,0 +1,378 @@
+<div class="page settings">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Preferences</span>
+      <h2>Settings</h2>
+    </div>
+  </header>
+
+  <!-- Tonic & reference -->
+  <section class="panel block">
+    <h3>Sa &amp; reference pitch</h3>
+    <div class="field">
+      <span class="label" id="tonic-label">Selected Sa (tonic)</span>
+      <div class="tonic-grid" role="radiogroup" aria-labelledby="tonic-label">
+        @for (t of tonics(); track t.pc) {
+          <button
+            type="button"
+            role="radio"
+            [attr.aria-checked]="t.pc === s().tonicPitchClass"
+            [class.active]="t.pc === s().tonicPitchClass"
+            (click)="store.setTonic(t.pc)"
+          >
+            {{ t.name }}
+          </button>
+        }
+      </div>
+    </div>
+    <div class="grid-2">
+      <label class="field">
+        <span class="label">Reference A4 · {{ s().a4 | hz: 1 }}</span>
+        <input
+          type="range"
+          [min]="limits.MIN_A4"
+          [max]="limits.MAX_A4"
+          step="0.5"
+          [value]="s().a4"
+          (input)="set('a4', num($event))"
+        />
+        <span class="hint"
+          >Standard is 440 Hz. Changes every target frequency.
+          @if (s().a4 !== 440) {
+            <button type="button" class="link" (click)="set('a4', 440)">Reset to 440</button>
+          }
+        </span>
+      </label>
+      <div class="field">
+        <span class="label">Western note spelling</span>
+        <div class="segmented">
+          <button
+            type="button"
+            [attr.aria-pressed]="s().accidentals === 'sharp'"
+            (click)="set('accidentals', 'sharp')"
+          >
+            Sharps (C♯)
+          </button>
+          <button
+            type="button"
+            [attr.aria-pressed]="s().accidentals === 'flat'"
+            (click)="set('accidentals', 'flat')"
+          >
+            Flats (D♭)
+          </button>
+        </div>
+      </div>
+    </div>
+    <p class="hint">
+      Octave of Madhya Sa and each string's target are set in
+      <a routerLink="/instrument">Instrument configuration</a> ({{ instrument.mainCount() }} main ·
+      {{ instrument.sympatheticCount() }} taraf).
+    </p>
+  </section>
+
+  <!-- Tuning -->
+  <section class="panel block">
+    <h3>Tuning tolerance</h3>
+    <div class="grid-2">
+      <label class="field">
+        <span class="label">"Perfectly tuned" within ±{{ s().tolerances.perfectCents }}¢</span>
+        <input
+          type="range"
+          min="1"
+          max="10"
+          step="0.5"
+          [value]="s().tolerances.perfectCents"
+          (input)="setTolerance('perfectCents', num($event))"
+        />
+      </label>
+      <label class="field">
+        <span class="label">"Acceptable" within ±{{ s().tolerances.acceptableCents }}¢</span>
+        <input
+          type="range"
+          min="3"
+          max="30"
+          step="1"
+          [value]="s().tolerances.acceptableCents"
+          (input)="setTolerance('acceptableCents', num($event))"
+        />
+      </label>
+    </div>
+    <p class="hint">
+      100 cents = one semitone. Beyond the acceptable range the tuner asks you to tighten or loosen
+      the wire.
+    </p>
+  </section>
+
+  <!-- Detection -->
+  <section class="panel block">
+    <h3>Pitch detection</h3>
+    <div class="grid-2">
+      <label class="field">
+        <span class="label">Sensitivity · {{ sensitivityLabel() }}</span>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          [value]="s().sensitivity"
+          (input)="set('sensitivity', num($event))"
+        />
+      </label>
+      <div class="field">
+        <span class="label">Noise filtering</span>
+        <div class="segmented">
+          @for (n of noiseLevels; track n.id) {
+            <button
+              type="button"
+              [attr.aria-pressed]="s().noiseFilter === n.id"
+              (click)="set('noiseFilter', n.id)"
+            >
+              {{ n.label }}
+            </button>
+          }
+        </div>
+        <span class="hint"
+          >Higher filtering ignores quieter background sounds, fans and room noise.</span
+        >
+      </div>
+      <label class="field">
+        <span class="label">Lowest pitch (Hz)</span>
+        <input
+          class="input"
+          type="number"
+          min="30"
+          max="400"
+          step="1"
+          [value]="s().minFrequency"
+          (change)="set('minFrequency', num($event))"
+        />
+      </label>
+      <label class="field">
+        <span class="label">Highest pitch (Hz)</span>
+        <input
+          class="input"
+          type="number"
+          min="100"
+          max="4000"
+          step="10"
+          [value]="s().maxFrequency"
+          (change)="set('maxFrequency', num($event))"
+        />
+        <span class="hint">The detector searches for the fundamental only within this range.</span>
+      </label>
+    </div>
+  </section>
+
+  <!-- Spectrum -->
+  <section class="panel block">
+    <h3>Sur Spectrum</h3>
+    <div class="grid-2">
+      <label class="field">
+        <span class="label">Lowest saptak shown</span>
+        <select class="select" (change)="set('spectrumLowSaptak', num($event))">
+          @for (sp of lowSaptaks; track sp.offset) {
+            <option [value]="sp.offset" [selected]="sp.offset === s().spectrumLowSaptak">
+              {{ sp.name }}
+            </option>
+          }
+        </select>
+      </label>
+      <label class="field">
+        <span class="label">Highest saptak shown</span>
+        <select class="select" (change)="set('spectrumHighSaptak', num($event))">
+          @for (sp of highSaptaks; track sp.offset) {
+            <option [value]="sp.offset" [selected]="sp.offset === s().spectrumHighSaptak">
+              {{ sp.name }}
+            </option>
+          }
+        </select>
+      </label>
+    </div>
+    <div class="toggles">
+      <label class="switch"
+        ><input
+          type="checkbox"
+          [checked]="s().showHarmonics"
+          (change)="set('showHarmonics', !s().showHarmonics)"
+        />
+        Show harmonics</label
+      >
+      <label class="switch"
+        ><input
+          type="checkbox"
+          [checked]="s().showFrequencyLabels"
+          (change)="set('showFrequencyLabels', !s().showFrequencyLabels)"
+        />
+        Show frequencies on labels</label
+      >
+    </div>
+  </section>
+
+  <!-- Appearance -->
+  <section class="panel block">
+    <h3>Appearance</h3>
+    <div class="grid-2">
+      <div class="field">
+        <span class="label">Theme</span>
+        <div class="segmented">
+          @for (t of themes; track t.id) {
+            <button
+              type="button"
+              [attr.aria-pressed]="s().theme === t.id"
+              (click)="set('theme', t.id)"
+            >
+              {{ t.label }}
+            </button>
+          }
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Accent</span>
+        <div class="segmented">
+          @for (a of accents; track a.id) {
+            <button
+              type="button"
+              [attr.aria-pressed]="s().accent === a.id"
+              (click)="set('accent', a.id)"
+            >
+              <i class="swatch" [style.background]="a.color"></i>{{ a.label }}
+            </button>
+          }
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Text size</span>
+        <div class="segmented">
+          @for (t of textScales; track t.id) {
+            <button
+              type="button"
+              [attr.aria-pressed]="s().textScale === t.id"
+              (click)="set('textScale', t.id)"
+            >
+              {{ t.label }}
+            </button>
+          }
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Motion</span>
+        <label class="switch"
+          ><input
+            type="checkbox"
+            [checked]="s().reduceMotion"
+            (change)="set('reduceMotion', !s().reduceMotion)"
+          />
+          Reduce animations</label
+        >
+      </div>
+    </div>
+  </section>
+
+  <!-- Install & offline -->
+  <section class="panel block">
+    <h3>Install &amp; offline use</h3>
+    <ul class="facts">
+      <li>
+        <span>Connection</span><b>{{ pwa.online() ? 'Online' : 'Offline' }}</b>
+      </li>
+      <li>
+        <span>Offline cache</span
+        ><b>{{
+          !pwa.serviceWorkerEnabled
+            ? 'Not available in this build/browser'
+            : pwa.offlineReady()
+              ? 'Ready – works without internet'
+              : 'Preparing…'
+        }}</b>
+      </li>
+      <li>
+        <span>Installed</span><b>{{ pwa.installPlatform() === 'installed' ? 'Yes' : 'No' }}</b>
+      </li>
+    </ul>
+    @switch (pwa.installPlatform()) {
+      @case ('prompt') {
+        <button type="button" class="btn btn-primary" (click)="install()">
+          <app-icon name="download" /> Install Dilruba Sur Tuner
+        </button>
+      }
+      @case ('ios') {
+        <p class="hint">
+          On iPhone or iPad: open this page in Safari, tap <b>Share</b>, then
+          <b>Add to Home Screen</b>.
+        </p>
+      }
+      @case ('manual') {
+        <p class="hint">
+          Chrome / Edge: use the install icon in the address bar or the menu → <b>Install app</b>.
+          Android: menu → <b>Add to Home screen</b>.
+        </p>
+      }
+    }
+    <p class="hint">
+      Audio analysis runs entirely on your device, so the tuner keeps working offline. The browser
+      may still ask for microphone permission.
+    </p>
+  </section>
+
+  <!-- Diagnostics -->
+  <section class="panel block">
+    <h3>Microphone &amp; audio engine</h3>
+    <ul class="facts">
+      <li>
+        <span>Browser support</span
+        ><b>{{ permissions.support().supported ? 'Supported' : 'Not supported' }}</b>
+      </li>
+      <li>
+        <span>Secure context (HTTPS)</span
+        ><b>{{ permissions.support().secureContext ? 'Yes' : 'No' }}</b>
+      </li>
+      <li>
+        <span>Permission</span><b>{{ permissions.permission() }}</b>
+      </li>
+      <li>
+        <span>Engine</span><b>{{ engine.status() }}</b>
+      </li>
+      @if (engine.info(); as info) {
+        <li>
+          <span>Device</span><b>{{ info.deviceLabel }}</b>
+        </li>
+        <li>
+          <span>Sample rate</span><b>{{ info.sampleRate }} Hz</b>
+        </li>
+        <li>
+          <span>Pitch window / FFT</span><b>{{ info.pitchWindow }} / {{ info.fftSize }} samples</b>
+        </li>
+        <li>
+          <span>Echo cancellation</span
+          ><b>{{ info.trackSettings.echoCancellation ?? 'unknown' }}</b>
+        </li>
+        <li>
+          <span>Noise suppression</span
+          ><b>{{ info.trackSettings.noiseSuppression ?? 'unknown' }}</b>
+        </li>
+        <li>
+          <span>Auto gain</span><b>{{ info.trackSettings.autoGainControl ?? 'unknown' }}</b>
+        </li>
+      }
+    </ul>
+    @if (
+      engine.info()?.trackSettings?.noiseSuppression ||
+      engine.info()?.trackSettings?.autoGainControl
+    ) {
+      <p class="hint warn">
+        Your browser kept some voice processing on despite our request to disable it. Readings may
+        be slightly less stable on very quiet notes.
+      </p>
+    }
+  </section>
+
+  <section class="block reset">
+    <p class="hint">
+      Preferences and string configuration are stored only in this browser. No account, no uploads.
+    </p>
+    <button type="button" class="btn" [class.danger]="confirmReset()" (click)="resetAll()">
+      <app-icon name="refresh" />
+      {{ confirmReset() ? 'Tap again to reset everything' : 'Reset all settings to defaults' }}
+    </button>
+  </section>
+</div>

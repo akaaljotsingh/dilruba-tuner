@@ -1,0 +1,222 @@
+<div class="page tuner">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Mode one</span>
+      <h2>Wire Tuner</h2>
+    </div>
+    <div class="head-actions">
+      <app-listen-button />
+    </div>
+  </header>
+  <app-audio-status class="status" />
+
+  <!-- String selection -->
+  <section class="selector" aria-label="Choose a wire">
+    <div class="group">
+      <div class="group-head">
+        <span class="eyebrow">Main strings</span>
+      </div>
+      <div class="chip-scroll" role="listbox" aria-label="Main strings">
+        @for (s of instrument.mainStrings(); track s.id) {
+          <button
+            type="button"
+            class="wire main"
+            role="option"
+            [attr.aria-selected]="s.id === selectedId()"
+            [class.selected]="s.id === selectedId()"
+            [class.tuned]="isTuned(s)"
+            (click)="select(s.id)"
+          >
+            <span class="w-name">Main {{ s.order }}</span>
+            <span class="w-swara display"
+              ><app-swara-label [swara]="s.swara" [saptak]="s.saptak" mode="short"
+            /></span>
+            <span class="w-west">{{ s.westernLabel }}</span>
+            @if (isTuned(s)) {
+              <span class="tick" aria-label="tuned"><app-icon name="check" /></span>
+            }
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (instrument.sympatheticCount() > 0) {
+      <div class="group">
+        <div class="group-head">
+          <span class="eyebrow">Sympathetic · Taraf</span>
+          @if (tunedCount() > 0) {
+            <button type="button" class="btn btn-ghost btn-sm" (click)="resetTicks()">
+              Clear ticks
+            </button>
+          }
+        </div>
+        <div class="chip-scroll" role="listbox" aria-label="Sympathetic strings">
+          @for (s of instrument.sympatheticStrings(); track s.id) {
+            <button
+              type="button"
+              class="wire taraf"
+              role="option"
+              [attr.aria-selected]="s.id === selectedId()"
+              [attr.aria-label]="s.name + ', ' + s.swaraName + ' ' + s.westernLabel"
+              [class.selected]="s.id === selectedId()"
+              [class.tuned]="isTuned(s)"
+              (click)="select(s.id)"
+            >
+              <span class="w-num">{{ s.order }}</span>
+              <span class="w-swara-sm display"
+                ><app-swara-label [swara]="s.swara" [saptak]="s.saptak" mode="short"
+              /></span>
+              @if (isTuned(s)) {
+                <span class="tick" aria-hidden="true"><app-icon name="check" /></span>
+              }
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </section>
+
+  @if (selected(); as target) {
+    <section
+      class="stage panel"
+      [attr.data-status]="hasReading() && tuning()?.octaveOffset === 0 ? tuning()?.status : 'idle'"
+    >
+      <!-- Target -->
+      <div class="target">
+        <div class="t-row">
+          <span class="eyebrow">Selected string</span>
+          <span class="t-name">{{ target.name }}</span>
+        </div>
+        <dl class="t-facts">
+          <div>
+            <dt>Target sur</dt>
+            <dd class="display t-swara">
+              <app-swara-label [swara]="target.swara" [saptak]="target.saptak" />
+            </dd>
+          </div>
+          <div>
+            <dt>Saptak</dt>
+            <dd>{{ target.saptakName }}</dd>
+          </div>
+          <div>
+            <dt>Western note</dt>
+            <dd>
+              {{ target.westernNote }}
+              <span class="faint">· octave {{ target.westernOctave }}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Target frequency</dt>
+            <dd class="numeric">{{ target.targetFrequency | hz: 2 }}</dd>
+          </div>
+        </dl>
+        <div class="t-actions">
+          <button
+            type="button"
+            class="btn btn-sm"
+            (click)="playReference()"
+            [attr.aria-pressed]="!!tone.playingFrequency()"
+          >
+            <app-icon [name]="tone.playingFrequency() ? 'stop' : 'volume'" />
+            {{ tone.playingFrequency() ? 'Stop tone' : 'Hear target' }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm"
+            (click)="step(-1)"
+            aria-label="Previous wire"
+          >
+            ‹ Prev
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm"
+            (click)="step(1)"
+            aria-label="Next wire"
+          >
+            Next ›
+          </button>
+        </div>
+      </div>
+
+      <!-- Live reading -->
+      <div class="reading" aria-live="polite">
+        @if (detected(); as d) {
+          <div class="big-swara display" [class.held]="pitch().held">
+            <app-swara-label [swara]="d.swara" [saptak]="d.saptak.offset" />
+          </div>
+          <div class="sub">
+            <span class="west"
+              >{{ d.western.name }}<sub>{{ d.western.octave }}</sub></span
+            >
+            <span class="dot-sep">·</span>
+            <span>{{ d.saptak.name }}</span>
+          </div>
+          <div class="numbers numeric">
+            <span><small>Detected</small>{{ pitch().frequency | hz: 2 }}</span>
+            <span
+              ><small>vs target</small><b class="cents">{{ tuning()?.cents | cents }}</b></span
+            >
+          </div>
+        } @else {
+          <div class="big-swara display placeholder">
+            @if (engine.listening()) {
+              <span>…</span>
+            } @else {
+              <span>—</span>
+            }
+          </div>
+          <div class="sub muted">
+            @if (engine.listening()) {
+              Play the selected wire on its own
+            } @else {
+              Start listening, then play the wire
+            }
+          </div>
+          <div class="numbers numeric faint">
+            <span><small>Detected</small>— Hz</span>
+            <span><small>vs target</small>—</span>
+          </div>
+        }
+      </div>
+
+      <div class="meter-wrap">
+        <app-tuner-meter
+          [cents]="tuning()?.cents ?? null"
+          [active]="hasReading() && tuning()?.octaveOffset === 0"
+          [status]="tuning()?.status ?? 'in-tune'"
+          [tolerances]="settings.tolerances()"
+          [reduceMotion]="settings.settings().reduceMotion"
+        />
+      </div>
+
+      <div class="guidance" role="status">
+        @if (statusLabel()) {
+          <span class="status-chip">{{ statusLabel() }}</span>
+        }
+        @if (engine.listening() && tuning(); as t) {
+          <p class="headline display" [class.perfect]="t.action === 'none'">{{ t.headline }}</p>
+          <p class="advice muted">{{ t.guidance }}</p>
+        } @else {
+          <p class="headline display faint">Ready when you are</p>
+          <p class="advice muted">
+            Tap Start Listening. Your microphone audio never leaves this device.
+          </p>
+        }
+      </div>
+    </section>
+  } @else {
+    <section class="panel empty">
+      <p>No strings configured. <a routerLink="/instrument">Set up your instrument</a>.</p>
+    </section>
+  }
+
+  <aside class="help">
+    <ol>
+      <li>Play the selected wire individually.</li>
+      <li>Wait for a stable pitch reading.</li>
+      <li>Tighten if flat · loosen if sharp.</li>
+      <li>Stop adjusting when centred.</li>
+    </ol>
+  </aside>
+</div>

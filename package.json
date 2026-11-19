@@ -6,7 +6,15 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test --watch=false",
+    "build:worklet": "node scripts/build-worklet.mjs",
+    "prestart": "npm run build:worklet",
+    "prebuild": "npm run build:worklet",
+    "pretest": "npm run build:worklet",
+    "test:watch": "ng test",
+    "icons": "node scripts/generate-icons.mjs",
+    "serve:prod": "node scripts/serve-dist.mjs",
+    "lint": "ng lint"
   },
   "private": true,
   "packageManager": "npm@11.19.0",
@@ -17,6 +25,9 @@
     "@angular/forms": "^22.0.0",
     "@angular/platform-browser": "^22.0.0",
     "@angular/router": "^22.0.0",
+    "@angular/service-worker": "^22.0.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource/cormorant-garamond": "^5.3.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
@@ -24,9 +35,17 @@
     "@angular/build": "^22.0.5",
     "@angular/cli": "^22.0.5",
     "@angular/compiler-cli": "^22.0.0",
+    "@eslint/js": "^10.0.1",
+    "angular-eslint": "22.8.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.14.0",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
+    "typescript-eslint": "8.72.2",
     "vitest": "^4.0.8"
+  },
+  "engines": {
+    "node": ">=22.22.3"
   }
 }

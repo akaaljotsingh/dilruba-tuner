@@ -1,13 +1,44 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>DilrubaTuner</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-</head>
-<body>
-  <app-root></app-root>
-</body>
+<html lang="en" data-theme="charcoal">
+  <head>
+    <meta charset="utf-8" />
+    <title>Dilruba Sur Tuner</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="description"
+      content="Tune Every Wire. Find Every Sur. A precise, offline tuner for Dilruba and Indian classical music – swaras, octaves and live pitch spectrum."
+    />
+    <meta name="theme-color" content="#121113" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="Sur Tuner" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Sur Tuner" />
+    <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+    <link rel="icon" type="image/png" sizes="96x96" href="icons/icon-96x96.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+  </head>
+  <body>
+    <app-root>
+      <div class="boot-splash" role="status" aria-label="Loading Dilruba Sur Tuner">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <circle cx="32" cy="32" r="29" fill="none" stroke="#c9a45c" stroke-width="1.6" />
+          <circle cx="32" cy="11" r="3.2" fill="#e8913a" />
+          <path
+            d="M32 9 C 29.5 22, 34.5 42, 32 55"
+            fill="none"
+            stroke="#efe6d4"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+          <circle cx="32" cy="32" r="5.5" fill="none" stroke="#e8913a" stroke-width="1.4" />
+        </svg>
+        <p>Dilruba Sur Tuner</p>
+      </div>
+    </app-root>
+    <noscript>Dilruba Sur Tuner needs JavaScript enabled to listen and tune.</noscript>
+  </body>
 </html>

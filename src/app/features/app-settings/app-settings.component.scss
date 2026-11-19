@@ -1,0 +1,131 @@
+@use 'styles/variables' as v;
+
+.settings {
+  display: grid;
+  gap: 16px;
+  max-width: 920px;
+}
+
+.page-head {
+  margin-bottom: 0;
+}
+
+.block {
+  padding: 18px 18px 20px;
+  display: grid;
+  gap: 16px;
+  @include v.above(v.$bp-md) {
+    padding: 24px 28px;
+  }
+  h3 {
+    font-size: 1.35rem;
+  }
+}
+
+.grid-2 {
+  display: grid;
+  gap: 18px;
+  @include v.above(v.$bp-md) {
+    grid-template-columns: 1fr 1fr;
+    gap: 22px 28px;
+  }
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  &.warn {
+    color: var(--near);
+  }
+}
+
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-left: 6px;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.tonic-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  @include v.above(v.$bp-md) {
+    grid-template-columns: repeat(12, 1fr);
+  }
+  button {
+    min-height: 46px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line-strong);
+    background: var(--surface-2);
+    color: var(--text);
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 700;
+    cursor: pointer;
+    &.active {
+      background: var(--accent);
+      border-color: transparent;
+      color: var(--accent-contrast);
+    }
+  }
+}
+
+.segmented {
+  flex-wrap: wrap;
+  justify-self: start;
+  border-radius: 18px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+.toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 28px;
+  font-size: 0.92rem;
+}
+
+.facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.9rem;
+    span {
+      color: var(--text-muted);
+    }
+    b {
+      font-weight: 560;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+  }
+}
+
+.reset {
+  padding: 8px 0 0;
+  justify-items: start;
+  .btn.danger {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+}
