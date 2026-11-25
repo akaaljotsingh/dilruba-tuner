@@ -9,6 +9,8 @@ import { clampNumber, oneOf, readJson, writeJson } from './local-storage';
 export type ThemeName = 'charcoal' | 'midnight';
 export type AccentName = 'saffron' | 'gold' | 'rose';
 export type TextScale = 'normal' | 'large';
+/** `focus`: only the note being played. `all`: every analysed component. */
+export type SpectrumView = 'focus' | 'all';
 
 export interface AppSettings {
   readonly version: 1;
@@ -30,6 +32,7 @@ export interface AppSettings {
   readonly spectrumHighSaptak: number;
   readonly showFrequencyLabels: boolean;
   readonly showHarmonics: boolean;
+  readonly spectrumView: SpectrumView;
   readonly theme: ThemeName;
   readonly accent: AccentName;
   readonly textScale: TextScale;
@@ -51,6 +54,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   spectrumHighSaptak: 1,
   showFrequencyLabels: true,
   showHarmonics: true,
+  spectrumView: 'focus',
   theme: 'charcoal',
   accent: 'saffron',
   textScale: 'normal',
@@ -99,6 +103,7 @@ export function sanitizeSettings(raw: unknown): AppSettings {
         ? r['showFrequencyLabels']
         : d.showFrequencyLabels,
     showHarmonics: typeof r['showHarmonics'] === 'boolean' ? r['showHarmonics'] : d.showHarmonics,
+    spectrumView: oneOf(r['spectrumView'], ['focus', 'all'] as const, d.spectrumView),
     theme: oneOf(r['theme'], ['charcoal', 'midnight'] as const, d.theme),
     accent: oneOf(r['accent'], ['saffron', 'gold', 'rose'] as const, d.accent),
     textScale: oneOf(r['textScale'], ['normal', 'large'] as const, d.textScale),

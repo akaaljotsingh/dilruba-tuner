@@ -347,6 +347,9 @@ export class AudioCaptureService {
         // Save battery while the app is in the background.
         this.pausedByVisibility = true;
         this.status.set('paused');
+        // Don't leave a stale reading (and stale tuning advice) on screen.
+        this.latestFrame = null;
+        this.pitch.set(SILENT_PITCH);
         await this.contextService.suspend();
       }
     } else if (this.status() === 'paused' && this.pausedByVisibility) {

@@ -101,22 +101,70 @@ describe('Dilruba Sur Tuner app', () => {
     FakeAudioWorkletNode.last!.emit(frame(181)); // target 185 Hz → ≈ −38 cents
     await harness.fixture.whenStable();
     const el = harness.routeNativeElement!;
-    expect(text(el.querySelector('.big-swara'))).toBe('Shuddh Ma');
+    expect(text(el.querySelector('.big-swara'))).toBe('Ma');
+    expect(text(el.querySelector('.reading .sub'))).toContain('Shuddh Ma');
     expect(text(el.querySelector('.numbers'))).toContain('181.00 Hz');
     expect(text(el.querySelector('.guidance'))).toContain('Wire is too loose.');
     expect(text(el.querySelector('.status-chip'))).toBe('Very Flat');
     await engine.stop();
   });
 
-  it('gives no tightening advice while the reading is unstable', async () => {
+  it('while the reading settles: direction cue only, no tightening advice text', async () => {
     const harness = await RouterTestingHarness.create('/tuner');
     const engine = TestBed.inject(AudioCaptureService);
     await engine.start();
     FakeAudioWorkletNode.last!.emit(frame(181, { stable: false }));
     await harness.fixture.whenStable();
-    const guidance = text(harness.routeNativeElement!.querySelector('.guidance'));
-    expect(guidance).not.toContain('Tighten');
-    expect(guidance).toContain('Hold the note steady');
+    const el = harness.routeNativeElement!;
+    expect(text(el.querySelector('.headline'))).toBe('Hold the note steady…');
+    expect(text(el.querySelector('.guidance'))).not.toContain('Wire is too loose');
+    const cue = el.querySelector('.direction')!;
+    expect(cue.classList).toContain('settling');
+    expect(text(cue)).toContain('Tighten');
+    await engine.stop();
+  });
+
+  it('no direction cue at all when there is no confident reading', async () => {
+    const harness = await RouterTestingHarness.create('/tuner');
+    const engine = TestBed.inject(AudioCaptureService);
+    await engine.start();
+    FakeAudioWorkletNode.last!.emit(frame(0));
+    await harness.fixture.whenStable();
+    expect(harness.routeNativeElement!.querySelector('.direction')).toBeNull();
+    await engine.stop();
+  });
+
+  it('a harmonic 2 saptaks above keeps the meter live and tunes by octave', async () => {
+    const harness = await RouterTestingHarness.create('/tuner');
+    const engine = TestBed.inject(AudioCaptureService);
+    await engine.start();
+    FakeAudioWorkletNode.last!.emit(frame(185 * 4 * Math.pow(2, -12 / 1200))); // 2 saptaks up, 12¢ flat
+    await harness.fixture.whenStable();
+    const el = harness.routeNativeElement!;
+    expect(text(el.querySelector('.distance'))).toContain('2 saptaks above the target');
+    expect(text(el.querySelector('.distance'))).toContain('tuning by octave');
+    expect(text(el.querySelector('.numbers'))).toContain('−12.0¢');
+    expect(text(el.querySelector('.direction'))).toContain('Tighten');
+    expect(el.querySelector('app-tuner-meter')!.getAttribute('data-status')).toBe('flat');
+    await engine.stop();
+  });
+
+  it('a far-off reading shows which way to go and how far', async () => {
+    const harness = await RouterTestingHarness.create('/tuner');
+    const engine = TestBed.inject(AudioCaptureService);
+    await engine.start();
+    FakeAudioWorkletNode.last!.emit(frame(155)); // ≈ 3 semitones below 185 Hz
+    await harness.fixture.whenStable();
+    const el = harness.routeNativeElement!;
+    expect(text(el.querySelector('.distance'))).toContain('3 semitones below the target');
+    expect(text(el.querySelector('.direction'))).toContain('▲');
+    expect(text(el.querySelector('.direction'))).toContain('Tighten');
+    expect(text(el.querySelector('.headline'))).toBe('Wire is far too loose.');
+    await new Promise((r) => setTimeout(r, 50)); // engine publishes readings at ≤ 25 Hz
+    FakeAudioWorkletNode.last!.emit(frame(277.18)); // a fifth above
+    await harness.fixture.whenStable();
+    expect(text(el.querySelector('.direction'))).toContain('▼');
+    expect(text(el.querySelector('.direction'))).toContain('Loosen');
     await engine.stop();
   });
 
@@ -144,6 +192,20 @@ describe('Dilruba Sur Tuner app', () => {
     add.click();
     await harness.fixture.whenStable();
     expect(el.querySelectorAll('app-string-row').length).toBe(4 + 17);
+  });
+
+  it('spectrum defaults to Focus view and can switch to All sounds', async () => {
+    const harness = await RouterTestingHarness.create('/spectrum');
+    const el = harness.routeNativeElement!;
+    expect(text(el.querySelector('.view-hint'))).toBe('Showing only the note you are playing');
+    expect(el.querySelector('.legend')).toBeNull();
+    const all = [...el.querySelectorAll<HTMLButtonElement>('.view-switch button')].find(
+      (b) => text(b) === 'All sounds',
+    )!;
+    all.click();
+    await harness.fixture.whenStable();
+    expect(text(el.querySelector('.legend'))).toContain('Your note');
+    expect(TestBed.inject(SettingsStore).settings().spectrumView).toBe('all');
   });
 
   it('spectrum page loads and degrades gracefully without canvas support', async () => {

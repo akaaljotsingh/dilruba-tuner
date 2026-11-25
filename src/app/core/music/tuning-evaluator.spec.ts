@@ -56,12 +56,76 @@ describe('tuning evaluator', () => {
     expect(r.status).toBe('very-flat');
   });
 
-  it('flags octave errors instead of advising a huge adjustment', () => {
-    const up = at(1200);
-    expect(up.octaveOffset).toBe(1);
-    expect(up.action).toBe('wait');
-    const down = at(-1190);
-    expect(down.octaveOffset).toBe(-1);
-    expect(down.action).toBe('wait');
+  describe('octave-equivalent readings (harmonics)', () => {
+    it('two saptaks above, exactly in tune → perfectly tuned via the octave', () => {
+      const r = at(2400);
+      expect(r.mode).toBe('octave');
+      expect(r.octaveOffset).toBe(2);
+      expect(r.meterCents).toBeCloseTo(0, 6);
+      expect(r.action).toBe('none');
+      expect(r.distanceLabel).toBe('2 saptaks above');
+      expect(r.guidance).toContain('2 saptaks higher');
+    });
+
+    it('one saptak above and 15¢ flat → tighten, with an upward direction', () => {
+      const r = at(1200 - 15);
+      expect(r.mode).toBe('octave');
+      expect(r.meterCents).toBeCloseTo(-15, 6);
+      expect(r.direction).toBe('up');
+      expect(r.action).toBe('tighten');
+      expect(r.distanceLabel).toBe('1 saptak above');
+    });
+
+    it('one saptak below and 20¢ sharp → loosen, with a downward direction', () => {
+      const r = at(-1200 + 20);
+      expect(r.mode).toBe('octave');
+      expect(r.direction).toBe('down');
+      expect(r.action).toBe('loosen');
+      expect(r.distanceLabel).toBe('1 saptak below');
+    });
+  });
+
+  describe('far-off readings (a different note)', () => {
+    it('3 semitones flat → pegged meter, upward direction, tighten', () => {
+      const r = at(-300);
+      expect(r.mode).toBe('far');
+      expect(r.meterCents).toBeLessThan(-50);
+      expect(r.direction).toBe('up');
+      expect(r.action).toBe('tighten');
+      expect(r.distanceLabel).toBe('3 semitones below');
+      expect(r.status).toBe('very-flat');
+    });
+
+    it('a fifth above → downward direction, loosen', () => {
+      const r = at(700);
+      expect(r.mode).toBe('far');
+      expect(r.direction).toBe('down');
+      expect(r.action).toBe('loosen');
+      expect(r.distanceLabel).toBe('7 semitones above');
+    });
+
+    it('far below by more than an octave still says which way (tighten)', () => {
+      const r = at(-1500);
+      expect(r.direction).toBe('up');
+      expect(r.action).toBe('tighten');
+      expect(r.distanceLabel).toBe('1 saptak + 3 semitones below');
+    });
+
+    it('far above by more than an octave asks to check the wire, but still points down', () => {
+      const r = at(1900);
+      expect(r.direction).toBe('down');
+      expect(r.action).toBe('check');
+      expect(r.distanceLabel).toBe('1 saptak + 7 semitones above');
+    });
+
+    it('direction is shown even before the reading is stable', () => {
+      const r = at(-400, { confident: true, stable: false });
+      expect(r.direction).toBe('up');
+      expect(r.action).toBe('wait');
+    });
+
+    it('no direction when the reading is not confident', () => {
+      expect(at(-400, { confident: false, stable: false }).direction).toBe('none');
+    });
   });
 });

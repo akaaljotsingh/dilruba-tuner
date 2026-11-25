@@ -82,10 +82,9 @@ const EDITABLE_SAPTAKS = SAPTAKS.filter((s) => s.offset >= -2 && s.offset <= 2);
       grid-template-columns: 1fr 96px;
       grid-template-areas: 'who tune' 'sw sw' 'sp fine' 'result result';
       @media (min-width: 820px) {
-        grid-template-columns: minmax(180px, 1.3fr) minmax(130px, 1fr) minmax(
-            120px,
-            0.9fr
-          ) 84px minmax(110px, auto) 44px;
+        grid-template-columns:
+          minmax(180px, 1.3fr) minmax(130px, 1fr) minmax(120px, 0.9fr)
+          84px minmax(110px, auto) 44px;
         grid-template-areas: 'who sw sp fine result tune';
       }
     }

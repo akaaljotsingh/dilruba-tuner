@@ -16,10 +16,12 @@
       @if (reading(); as r) {
         <div class="now-row">
           <span class="now-swara display" [class.held]="pitch().held"
-            ><app-swara-label [swara]="r.swara" [saptak]="r.saptak.offset"
+            ><app-swara-label [swara]="r.swara" [saptak]="r.saptak.offset" mode="short"
           /></span>
           <div class="now-meta">
-            <span class="west">{{ r.western.label }} · {{ r.saptak.name }}</span>
+            <span class="west"
+              >{{ r.swara.name }} · {{ r.western.label }} · {{ r.saptak.name }}</span
+            >
             <span class="numeric muted"
               >{{ pitch().frequency | hz: 1 }} · {{ r.cents | cents: 0 }}</span
             >
@@ -44,22 +46,53 @@
 
   <section class="viz panel">
     <div class="toolbar">
-      <div class="legend" aria-label="Legend">
-        <span><i class="lg fund"></i>Played note</span>
-        <span><i class="lg harm"></i>Harmonic</span>
-        <span><i class="lg res"></i>Resonance</span>
-        <span><i class="lg low"></i>Uncertain</span>
+      <div class="view-switch">
+        <div class="segmented" role="radiogroup" aria-label="What to show">
+          <button
+            type="button"
+            role="radio"
+            [attr.aria-checked]="view() === 'focus'"
+            [attr.aria-pressed]="view() === 'focus'"
+            (click)="setView('focus')"
+          >
+            Focus
+          </button>
+          <button
+            type="button"
+            role="radio"
+            [attr.aria-checked]="view() === 'all'"
+            [attr.aria-pressed]="view() === 'all'"
+            (click)="setView('all')"
+          >
+            All sounds
+          </button>
+        </div>
+        @if (view() === 'focus') {
+          <span class="view-hint">Showing only the note you are playing</span>
+        } @else {
+          <div class="legend" aria-label="Legend">
+            <span><i class="lg you"></i>Your note</span>
+            <span><i class="lg fund"></i>Other notes</span>
+            @if (settings.settings().showHarmonics) {
+              <span><i class="lg harm"></i>Harmonic</span>
+            }
+            <span><i class="lg res"></i>Resonance</span>
+            <span><i class="lg low"></i>Uncertain</span>
+          </div>
+        }
       </div>
       <div class="tools">
-        <button
-          type="button"
-          class="btn btn-sm"
-          [class.on]="settings.settings().showHarmonics"
-          (click)="toggle('showHarmonics')"
-          [attr.aria-pressed]="settings.settings().showHarmonics"
-        >
-          Harmonics
-        </button>
+        @if (view() === 'all') {
+          <button
+            type="button"
+            class="btn btn-sm"
+            [class.on]="settings.settings().showHarmonics"
+            (click)="toggle('showHarmonics')"
+            [attr.aria-pressed]="settings.settings().showHarmonics"
+          >
+            Harmonics
+          </button>
+        }
         <button
           type="button"
           class="btn btn-sm"
@@ -145,8 +178,13 @@
   </section>
 
   <p class="note faint">
-    Line brightness and height show the relative strength of each sound the microphone hears (not
-    calibrated loudness). Overtones of the note you play are drawn as harmonics, so they are not
-    mistaken for separate swaras.
+    @if (view() === 'focus') {
+      Focus shows one line: the note you are playing, the same reading as “Playing now”. Switch to
+      All sounds to also see overtones, ringing tarabs and other notes.
+    } @else {
+      Your note is highlighted; everything else is dimmed. Line brightness and height show the
+      relative strength of each sound (not calibrated loudness). Overtones are drawn as harmonics,
+      so they are not mistaken for separate swaras.
+    }
   </p>
 </div>

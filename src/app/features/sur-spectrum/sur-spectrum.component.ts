@@ -13,15 +13,15 @@ import {
 } from '@angular/core';
 import { AnalysisFrameMessage } from '../../core/audio/analysis-protocol';
 import { AudioCaptureService } from '../../core/audio/audio-capture.service';
+import { approach } from '../../core/dsp/audio-smoother';
 import { PitchLineTracker } from '../../core/dsp/pitch-line-tracker';
-import { PEAK_STRIDE, PeakClass } from '../../core/models/spectrum-result.model';
-import { SettingsStore } from '../../core/state/settings.store';
+import { SettingsStore, SpectrumView } from '../../core/state/settings.store';
 import { AudioStatusComponent } from '../../shared/components/audio-status.component';
 import { IconComponent } from '../../shared/components/icon.component';
 import { ListenButtonComponent } from '../../shared/components/listen-button.component';
 import { SwaraLabelComponent } from '../../shared/components/swara-label.component';
 import { CentsPipe, HzPipe } from '../../shared/pipes/frequency.pipes';
-import { SpectrumRenderer, SpectrumScale, swaraColor } from './spectrum-renderer';
+import { PrimaryNote, SpectrumRenderer, SpectrumScale, swaraColor } from './spectrum-renderer';
 
 const MIN_PX = 14;
 const MAX_PX = 72;
@@ -51,6 +51,7 @@ export class SurSpectrumComponent {
   protected readonly zoom = signal(0);
   protected readonly follow = signal(true);
   protected readonly canvasUnsupported = signal(false);
+  protected readonly view = computed(() => this.settings.settings().spectrumView);
   private readonly viewportWidth = signal(0);
 
   protected readonly pitch = this.engine.pitch;
@@ -88,6 +89,12 @@ export class SurSpectrumComponent {
   private lastTime = 0;
   private lastUserScroll = 0;
   private programmaticScroll = false;
+  /** "Your note": follows the monophonic pitch reading, matched to its spectral line. */
+  private readonly primary: { frequency: number; intensity: number; lineId: number } = {
+    frequency: 0,
+    intensity: 0,
+    lineId: 0,
+  };
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -156,6 +163,11 @@ export class SurSpectrumComponent {
     }
   }
 
+  protected setView(view: SpectrumView): void {
+    this.settings.update({ spectrumView: view });
+    this.kick();
+  }
+
   protected toggle(key: 'showHarmonics' | 'showFrequencyLabels'): void {
     this.settings.update({ [key]: !this.settings.settings()[key] });
   }
@@ -177,24 +189,14 @@ export class SurSpectrumComponent {
     this.lastUserScroll = performance.now();
   };
 
+  /** Keeps the played note in view unless the user has just scrolled by hand. */
   private maybeFollow(frame: AnalysisFrameMessage): void {
-    if (!this.renderer || !frame.spectrum || performance.now() - this.lastUserScroll < 4000) return;
-    // Strongest fundamental in this frame.
-    const p = frame.spectrum.peaks;
-    let best = -1;
-    let bestI = 0;
-    for (let i = 0; i < frame.spectrum.count; i++) {
-      const o = i * PEAK_STRIDE;
-      if (p[o + 4] === PeakClass.Fundamental && p[o + 3] > best) {
-        best = p[o + 3];
-        bestI = i;
-      }
-    }
-    if (best < 0.3) return;
-    const x = this.renderer.xForFrequency(p[bestI * PEAK_STRIDE]);
+    if (!this.renderer || !frame.active || frame.held || !frame.stable) return;
+    if (performance.now() - this.lastUserScroll < 4000) return;
+    const x = this.renderer.xForFrequency(frame.frequency);
     if (!Number.isFinite(x)) return;
     const scroller = this.scroller().nativeElement;
-    const margin = scroller.clientWidth * 0.15;
+    const margin = scroller.clientWidth * 0.2;
     if (
       x < scroller.scrollLeft + margin ||
       x > scroller.scrollLeft + scroller.clientWidth - margin
@@ -205,6 +207,37 @@ export class SurSpectrumComponent {
         behavior: this.settings.settings().reduceMotion ? 'auto' : 'smooth',
       });
     }
+  }
+
+  /** Updates the played-note state once per animation frame. */
+  private updatePrimary(dt: number): PrimaryNote | null {
+    const p = this.primary;
+    const frame = this.engine.latestFrame;
+    let target = 0;
+    if (frame && frame.active && frame.frequency > 0) {
+      p.frequency = frame.frequency;
+      // Match the spectral line within ±50¢ so its intensity drives the visual.
+      const ratio = Math.pow(2, 50 / 1200);
+      let best: { id: number; intensity: number } | null = null;
+      for (const line of this.tracker.lines) {
+        const r = line.frequency / frame.frequency;
+        if (r < ratio && r > 1 / ratio && (!best || line.intensity > best.intensity)) {
+          best = { id: line.id, intensity: line.intensity };
+        }
+      }
+      p.lineId = best?.id ?? 0;
+      // Without a spectral match (e.g. weak fundamental) fall back to the input level.
+      const levelNorm = Math.max(0, Math.min(1, (frame.levelDb + 70) / 50));
+      // Never let the played note look like faint background.
+      target = Math.max(0.35, best ? best.intensity : levelNorm);
+    }
+    p.intensity = approach(p.intensity, target, dt, 0.04, 0.5);
+    if (target === 0 && p.intensity < 0.01) {
+      p.intensity = 0;
+      p.lineId = 0;
+      return null;
+    }
+    return p;
   }
 
   private currentScale(): SpectrumScale {
@@ -262,8 +295,9 @@ export class SurSpectrumComponent {
     const dt = Math.min(0.1, Math.max(0.001, (now - this.lastTime) / 1000));
     this.lastTime = now;
     this.tracker.step(dt);
-    this.renderer?.draw(this.tracker.lines);
-    if (this.engine.listening() || !this.tracker.idle) {
+    const primary = this.updatePrimary(dt);
+    this.renderer?.draw(this.tracker.lines, this.view(), primary);
+    if (this.engine.listening() || !this.tracker.idle || primary) {
       this.frame = requestAnimationFrame(this.render);
     }
   };

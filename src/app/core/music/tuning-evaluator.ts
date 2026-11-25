@@ -1,4 +1,10 @@
-import { TuningResult, TuningStatus, TuningTolerances } from '../models/tuning-result.model';
+import {
+  PitchDirection,
+  TuningMode,
+  TuningResult,
+  TuningStatus,
+  TuningTolerances,
+} from '../models/tuning-result.model';
 import { centsBetween } from './cents-calculator';
 
 export interface ReadingQuality {
@@ -7,6 +13,9 @@ export interface ReadingQuality {
   /** The reading has been steady for several frames. */
   readonly stable: boolean;
 }
+
+/** Half the meter's span: beyond this the needle pegs. */
+export const METER_RANGE_CENTS = 50;
 
 /** Boundary (cents) between "Flat/Sharp" and "Very Flat/Very Sharp". */
 export function farThreshold(tolerances: TuningTolerances): number {
@@ -22,13 +31,36 @@ export function tuningStatus(cents: number, tolerances: TuningTolerances): Tunin
   return flat ? 'very-flat' : 'very-sharp';
 }
 
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
+}
+
+/** "2 saptaks above", "1 saptak + 3 semitones below", "5 semitones above". */
+export function describeDistance(cents: number): string {
+  const semis = Math.round(Math.abs(cents) / 100);
+  if (semis === 0) return '';
+  const octaves = Math.floor(semis / 12);
+  const rest = semis % 12;
+  const where = cents > 0 ? 'above' : 'below';
+  const parts: string[] = [];
+  if (octaves) parts.push(plural(octaves, 'saptak'));
+  if (rest) parts.push(plural(rest, 'semitone'));
+  return `${parts.join(' + ')} ${where}`;
+}
+
 /**
  * Compares a detected frequency with a wire's target and produces the
- * player-facing status and tightening / loosening advice.
+ * player-facing status, direction and tightening / loosening advice.
  *
  * Physics: string pitch rises with tension, so a flat (low) reading means the
  * wire is too loose → tighten; a sharp (high) reading means too tight → loosen.
- * No advice is given unless the reading is both confident and stable.
+ *
+ * A reading that is the same swara in another saptak (very common: the tuner
+ * hears the wire's 2nd or 4th harmonic) is tuned on its octave-equivalent pitch,
+ * since every harmonic rises and falls with the wire. Readings that are a
+ * different note get a coarse direction and distance instead of a pegged meter.
+ *
+ * No tighten / loosen advice is given unless the reading is confident and stable.
  */
 export function evaluateTuning(
   detectedHz: number,
@@ -37,33 +69,56 @@ export function evaluateTuning(
   quality: ReadingQuality,
 ): TuningResult {
   const cents = centsBetween(detectedHz, targetHz);
-  const status = Number.isFinite(cents) ? tuningStatus(cents, tolerances) : 'in-tune';
-  const withinPerfect = Math.abs(cents) <= tolerances.perfectCents;
-  const withinAcceptable = Math.abs(cents) <= tolerances.acceptableCents;
-  const octaveOffset = Math.abs(cents) >= 600 ? Math.round(cents / 1200) : 0;
+  const valid = Number.isFinite(cents);
+  const octaveOffset = valid ? Math.round(cents / 1200) : 0;
+  const folded = valid ? cents - 1200 * octaveOffset : 0;
 
-  const base = { cents, status, withinPerfect, withinAcceptable, octaveOffset };
+  let mode: TuningMode;
+  let meterCents: number;
+  if (!valid || (octaveOffset === 0 && Math.abs(cents) <= METER_RANGE_CENTS)) {
+    mode = 'direct';
+    meterCents = valid ? cents : 0;
+  } else if (octaveOffset !== 0 && Math.abs(folded) <= METER_RANGE_CENTS) {
+    mode = 'octave';
+    meterCents = folded;
+  } else {
+    mode = 'far';
+    meterCents = Math.sign(cents) * (METER_RANGE_CENTS + 10);
+  }
 
-  if (!Number.isFinite(cents) || !quality.confident) {
+  const status = tuningStatus(meterCents, tolerances);
+  const withinPerfect = mode !== 'far' && Math.abs(meterCents) <= tolerances.perfectCents;
+  const withinAcceptable = mode !== 'far' && Math.abs(meterCents) <= tolerances.acceptableCents;
+  const direction: PitchDirection =
+    !valid || withinPerfect ? 'none' : meterCents < 0 ? 'up' : 'down';
+  const semitones = valid ? Math.round(cents / 100) : 0;
+  const distanceLabel =
+    mode === 'octave'
+      ? `${plural(Math.abs(octaveOffset), 'saptak')} ${octaveOffset > 0 ? 'above' : 'below'}`
+      : mode === 'far'
+        ? describeDistance(cents)
+        : '';
+
+  const base = {
+    cents,
+    meterCents,
+    mode,
+    direction,
+    status,
+    withinPerfect,
+    withinAcceptable,
+    octaveOffset,
+    semitones,
+    distanceLabel,
+  };
+
+  if (!valid || !quality.confident) {
     return {
       ...base,
+      direction: 'none',
       action: 'wait',
       headline: 'Listening…',
       guidance: 'Play the selected wire on its own and let it ring.',
-    };
-  }
-
-  if (octaveOffset !== 0) {
-    const n = Math.abs(octaveOffset);
-    const where = octaveOffset > 0 ? 'above' : 'below';
-    return {
-      ...base,
-      action: 'wait',
-      headline: `${n === 1 ? 'One octave' : `${n} octaves`} ${where} the target`,
-      guidance:
-        octaveOffset > 0
-          ? 'This may be a harmonic or a different wire. Check you are playing the selected wire, and the target octave in Instrument settings.'
-          : 'Check you are playing the selected wire. Never tighten a wire by a large amount at once.',
     };
   }
 
@@ -76,38 +131,65 @@ export function evaluateTuning(
     };
   }
 
+  if (mode === 'far') {
+    const below = cents < 0;
+    const overAnOctaveAbove = !below && cents > 1200 - METER_RANGE_CENTS;
+    if (overAnOctaveAbove) {
+      return {
+        ...base,
+        action: 'check',
+        headline: 'Far above the target',
+        guidance:
+          'This is probably a different wire or an overtone. Check the selected wire; if it really is this wire, loosen gradually.',
+      };
+    }
+    return {
+      ...base,
+      action: below ? 'tighten' : 'loosen',
+      headline: below ? 'Wire is far too loose.' : 'Wire is far too tight.',
+      guidance: below
+        ? 'Tighten gradually, re-playing the wire as you go. Never turn a peg a long way at once.'
+        : 'Loosen gradually, re-playing the wire as you go.',
+    };
+  }
+
+  const viaOctave =
+    mode === 'octave'
+      ? ` (Hearing it ${plural(Math.abs(octaveOffset), 'saptak')} ${octaveOffset > 0 ? 'higher' : 'lower'} – tuning still works.)`
+      : '';
+
   if (withinPerfect) {
     return {
       ...base,
       action: 'none',
       headline: 'Perfectly Tuned!',
-      guidance: 'Stop adjusting – this wire is centred.',
+      guidance: `Stop adjusting – this wire is centred.${viaOctave}`,
     };
   }
 
-  const flat = cents < 0;
+  const flat = meterCents < 0;
   if (withinAcceptable) {
     return {
       ...base,
       action: flat ? 'tighten' : 'loosen',
       headline: flat ? 'Almost there – a touch flat' : 'Almost there – a touch sharp',
-      guidance: flat ? 'Tighten very slightly.' : 'Loosen very slightly.',
+      guidance: `${flat ? 'Tighten very slightly.' : 'Loosen very slightly.'}${viaOctave}`,
     };
   }
 
-  const far = Math.abs(cents) > farThreshold(tolerances);
+  const far = Math.abs(meterCents) > farThreshold(tolerances);
   if (flat) {
     return {
       ...base,
       action: 'tighten',
       headline: 'Wire is too loose.',
-      guidance: far ? 'Tighten gradually, re-playing the wire as you go.' : 'Tighten slightly.',
+      guidance: `${far ? 'Tighten gradually, re-playing the wire as you go.' : 'Tighten slightly.'}${viaOctave}`,
     };
   }
   return {
     ...base,
     action: 'loosen',
     headline: 'Wire is too tight.',
-    guidance: far ? 'Loosen gradually, re-playing the wire as you go.' : 'Loosen slightly.',
+    guidance: `${far ? 'Loosen gradually, re-playing the wire as you go.' : 'Loosen slightly.'}${viaOctave}`,
   };
 }

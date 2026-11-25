@@ -98,7 +98,27 @@ export class WireTunerComponent {
 
   protected readonly statusLabel = computed(() => {
     const t = this.tuning();
-    return t && this.hasReading() && t.octaveOffset === 0 ? TUNING_STATUS_LABELS[t.status] : '';
+    if (!t || !this.hasReading()) return '';
+    return t.mode === 'far'
+      ? t.cents < 0
+        ? 'Far too low'
+        : 'Far too high'
+      : TUNING_STATUS_LABELS[t.status];
+  });
+
+  /** Big ▲ Tighten / ▼ Loosen cue, shown whenever we have a confident reading that is off. */
+  protected readonly directionCue = computed(() => {
+    const t = this.tuning();
+    if (!t || !this.hasReading() || t.direction === 'none') return null;
+    const up = t.direction === 'up';
+    return {
+      up,
+      verb: up ? 'Tighten' : 'Loosen',
+      hint: up ? 'pitch must go up' : 'pitch must come down',
+      far: t.mode === 'far',
+      /** Shown dimmer while the reading is still settling (e.g. while turning the peg). */
+      settling: !this.pitch().stable,
+    };
   });
 
   /**

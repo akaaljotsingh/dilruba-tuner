@@ -145,6 +145,23 @@ describe('AudioCaptureService (microphone lifecycle)', () => {
     expect(engine.error()?.code).toBe('stream-ended');
   });
 
+  it('clears the reading when paused in the background (no stale advice)', async () => {
+    const { engine } = setup();
+    await engine.start();
+    FakeAudioWorkletNode.last!.emit(frame(185));
+    expect(engine.pitch().active).toBe(true);
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise((r) => setTimeout(r));
+    expect(engine.status()).toBe('paused');
+    expect(engine.pitch().active).toBe(false);
+    expect(engine.latestFrame).toBeNull();
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'visible',
+    });
+  });
+
   it('enables spectrum analysis only while a view needs it', async () => {
     const { engine } = setup();
     await engine.start();

@@ -85,6 +85,18 @@
   padding: 0 14px 10px;
 }
 
+.view-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.view-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -101,6 +113,13 @@
     height: 3px;
     border-radius: 2px;
     display: inline-block;
+  }
+  .you {
+    // The played note keeps its swara colour on the canvas; the legend shows its weight.
+    height: 6px;
+    width: 18px;
+    background: var(--text);
+    box-shadow: 0 0 8px var(--text);
   }
   .fund {
     background: linear-gradient(90deg, hsl(42 72% 60%), hsl(158 72% 60%), hsl(274 72% 66%));

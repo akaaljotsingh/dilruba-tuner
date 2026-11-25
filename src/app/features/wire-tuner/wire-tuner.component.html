@@ -77,10 +77,7 @@
   </section>
 
   @if (selected(); as target) {
-    <section
-      class="stage panel"
-      [attr.data-status]="hasReading() && tuning()?.octaveOffset === 0 ? tuning()?.status : 'idle'"
-    >
+    <section class="stage panel" [attr.data-status]="hasReading() ? tuning()?.status : 'idle'">
       <!-- Target -->
       <div class="target">
         <div class="t-row">
@@ -143,19 +140,32 @@
       <div class="reading" aria-live="polite">
         @if (detected(); as d) {
           <div class="big-swara display" [class.held]="pitch().held">
-            <app-swara-label [swara]="d.swara" [saptak]="d.saptak.offset" />
+            <app-swara-label [swara]="d.swara" [saptak]="d.saptak.offset" mode="short" />
           </div>
           <div class="sub">
+            <span class="swara-name">{{ d.swara.name }}</span>
+            <span class="dot-sep">·</span>
             <span class="west"
               >{{ d.western.name }}<sub>{{ d.western.octave }}</sub></span
             >
             <span class="dot-sep">·</span>
             <span>{{ d.saptak.name }}</span>
           </div>
+          @if (tuning()?.distanceLabel; as distance) {
+            <div class="distance" [class.far]="tuning()?.mode === 'far'">
+              Reading {{ distance }} the target
+              @if (tuning()?.mode === 'octave') {
+                <span class="distance-note">· same swara, tuning by octave</span>
+              }
+            </div>
+          }
           <div class="numbers numeric">
             <span><small>Detected</small>{{ pitch().frequency | hz: 2 }}</span>
             <span
-              ><small>vs target</small><b class="cents">{{ tuning()?.cents | cents }}</b></span
+              ><small>{{ tuning()?.mode === 'octave' ? 'vs swara' : 'vs target' }}</small
+              ><b class="cents">{{
+                (tuning()?.mode === 'far' ? tuning()?.cents : tuning()?.meterCents) | cents
+              }}</b></span
             >
           </div>
         } @else {
@@ -182,8 +192,8 @@
 
       <div class="meter-wrap">
         <app-tuner-meter
-          [cents]="tuning()?.cents ?? null"
-          [active]="hasReading() && tuning()?.octaveOffset === 0"
+          [cents]="tuning()?.meterCents ?? null"
+          [active]="hasReading()"
           [status]="tuning()?.status ?? 'in-tune'"
           [tolerances]="settings.tolerances()"
           [reduceMotion]="settings.settings().reduceMotion"
@@ -191,10 +201,27 @@
       </div>
 
       <div class="guidance" role="status">
-        @if (statusLabel()) {
+        @if (directionCue(); as cue) {
+          <div
+            class="direction"
+            [class.up]="cue.up"
+            [class.down]="!cue.up"
+            [class.far]="cue.far"
+            [class.settling]="cue.settling"
+          >
+            <span class="direction-arrow" aria-hidden="true">{{ cue.up ? '▲' : '▼' }}</span>
+            <span class="direction-text">
+              <strong>{{ cue.verb }}</strong>
+              <small>{{ cue.hint }}</small>
+            </span>
+          </div>
+        } @else if (statusLabel()) {
           <span class="status-chip">{{ statusLabel() }}</span>
         }
         @if (engine.listening() && tuning(); as t) {
+          @if (directionCue() && statusLabel()) {
+            <span class="status-chip">{{ statusLabel() }}</span>
+          }
           <p class="headline display" [class.perfect]="t.action === 'none'">{{ t.headline }}</p>
           <p class="advice muted">{{ t.guidance }}</p>
         } @else {

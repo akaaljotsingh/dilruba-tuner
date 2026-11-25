@@ -15,10 +15,32 @@ export interface SpectrumScale {
   readonly showHarmonics: boolean;
 }
 
+/** The note the musician is playing (from the monophonic pitch reading), drawn prominently. */
+export interface PrimaryNote {
+  readonly frequency: number;
+  /** Displayed intensity 0–1. */
+  readonly intensity: number;
+  /** Id of the matching spectral line (0 if none) so it isn't drawn twice. */
+  readonly lineId: number;
+}
+
+export type SpectrumViewMode = 'focus' | 'all';
+
 const HEADER_H = 30;
 const FOOTER_H = 66;
 const LABEL_W = 78;
 const LABEL_H = 50;
+const BIG_LABEL_W = 132;
+const BIG_LABEL_H = 64;
+const RESONANCE_COLOR = 'hsl(172, 34%, 62%)';
+
+interface LabelItem {
+  readonly x: number;
+  readonly frequency: number;
+  readonly intensity: number;
+  readonly resonance: boolean;
+  readonly primary: boolean;
+}
 
 /** Hue for each swara (semitone above Sa). Sa is gold; the wheel moves through warm to cool tones. */
 export function swaraColor(semitone: number, lightness = 64, alpha = 1): string {
@@ -105,7 +127,11 @@ export class SpectrumRenderer {
     return (midi - this.lowMidi) * this.px;
   }
 
-  draw(lines: readonly PitchLine[]): void {
+  /**
+   * @param view `focus` draws only the primary (played) note; `all` draws every
+   *   component with the primary note highlighted and the rest dimmed.
+   */
+  draw(lines: readonly PitchLine[], view: SpectrumViewMode, primary: PrimaryNote | null): void {
     if (!this.scale || this.width < 2) return;
     if (this.staticDirty) this.drawStatic();
     const ctx = this.ctx;
@@ -119,86 +145,147 @@ export class SpectrumRenderer {
     const plotTop = HEADER_H;
     const plotBottom = this.height - FOOTER_H;
     const plotH = plotBottom - plotTop;
+    const hasPrimary = !!primary && primary.intensity > 0.01 && primary.frequency > 0;
+    const labels: LabelItem[] = [];
 
-    // Lines: draw weakest first so strong ones sit on top.
-    const order = lines.slice().sort((a, b) => a.intensity - b.intensity);
-    const labels: { x: number; line: PitchLine }[] = [];
-    for (const line of order) {
-      if (line.intensity < 0.01) continue;
-      if (line.cls === PeakClass.Noise) continue;
-      if (line.cls === PeakClass.Harmonic && !scale.showHarmonics) continue;
-      const midi = mapper.frequencyToMidi(line.frequency);
-      if (midi < this.lowMidi || midi > this.highMidi) continue;
-      const x = (midi - this.lowMidi) * this.px;
-      const semitone = mod12(Math.round(midi) - mapper.madhyaSaMidi);
-      const k = Math.pow(line.intensity, 0.85);
+    if (view === 'all') {
+      // Other sounds are context: dimmed when a played note is present, weakest first.
+      const dim = hasPrimary ? 0.5 : 1;
+      const order = lines.slice().sort((a, b) => a.intensity - b.intensity);
+      for (const line of order) {
+        if (line.intensity < 0.01) continue;
+        if (hasPrimary && line.id === primary!.lineId) continue;
+        if (line.cls === PeakClass.Noise) continue;
+        if (line.cls === PeakClass.Harmonic && !scale.showHarmonics) continue;
+        const midi = mapper.frequencyToMidi(line.frequency);
+        if (midi < this.lowMidi || midi > this.highMidi) continue;
+        const x = (midi - this.lowMidi) * this.px;
+        const semitone = mod12(Math.round(midi) - mapper.madhyaSaMidi);
+        const k = Math.pow(line.intensity, 0.85);
 
-      let color: string;
-      let width: number;
-      let alpha: number;
-      switch (line.cls) {
-        case PeakClass.Fundamental:
-          color = swaraColor(semitone, 52 + 14 * k);
-          width = 2 + 5 * k;
-          alpha = 0.18 + 0.82 * k;
-          break;
-        case PeakClass.Resonance:
-          color = 'hsl(172, 34%, 62%)';
-          width = 1.5 + 2.5 * k;
-          alpha = 0.12 + 0.6 * k;
-          break;
-        case PeakClass.Harmonic:
-          color = this.colors.gold;
-          width = 1 + 2 * k;
-          alpha = 0.08 + 0.42 * k;
-          break;
-        default:
-          color = this.colors.muted;
-          width = 1 + 1.5 * k;
-          alpha = 0.05 + 0.3 * k;
-      }
+        let color: string;
+        let width: number;
+        let alpha: number;
+        switch (line.cls) {
+          case PeakClass.Fundamental:
+            color = swaraColor(semitone, 52 + 14 * k);
+            width = 2 + 4 * k;
+            alpha = 0.18 + 0.72 * k;
+            break;
+          case PeakClass.Resonance:
+            color = RESONANCE_COLOR;
+            width = 1.5 + 2 * k;
+            alpha = 0.12 + 0.55 * k;
+            break;
+          case PeakClass.Harmonic:
+            color = this.colors.gold;
+            width = 1 + 1.5 * k;
+            alpha = 0.06 + 0.36 * k;
+            break;
+          default:
+            color = this.colors.muted;
+            width = 1 + 1.2 * k;
+            alpha = 0.04 + 0.25 * k;
+        }
+        this.strokeLine(
+          x,
+          plotBottom,
+          plotBottom - plotH * (0.18 + 0.82 * k),
+          color,
+          width,
+          alpha * dim,
+          {
+            glow: !hasPrimary && line.cls === PeakClass.Fundamental && k > 0.35 ? 18 * k : 0,
+            dashed: line.cls === PeakClass.Resonance,
+          },
+        );
 
-      const h = plotH * (0.18 + 0.82 * k);
-      const top = plotBottom - h;
-      ctx.globalAlpha = alpha;
-      const grad = ctx.createLinearGradient(0, top, 0, plotBottom);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(0.25, color);
-      grad.addColorStop(1, color);
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = width;
-      ctx.lineCap = 'round';
-      if (line.cls === PeakClass.Fundamental && k > 0.35) {
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 18 * k;
-      }
-      if (line.cls === PeakClass.Resonance) ctx.setLineDash([3, 4]);
-      ctx.beginPath();
-      ctx.moveTo(x, plotBottom);
-      ctx.lineTo(x, top);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.shadowBlur = 0;
-
-      // Glow on the bottom swara label of a sounding fundamental.
-      if (line.cls === PeakClass.Fundamental) {
-        ctx.globalAlpha = 0.25 * k;
-        ctx.fillStyle = color;
-        const cx = (Math.round(midi) - this.lowMidi) * this.px;
-        ctx.fillRect(cx - this.px / 2, plotBottom, this.px, FOOTER_H);
-      }
-      ctx.globalAlpha = 1;
-
-      if (
-        (line.cls === PeakClass.Fundamental || line.cls === PeakClass.Resonance) &&
-        line.age >= 2 &&
-        k > 0.12
-      ) {
-        labels.push({ x, line });
+        if (
+          (line.cls === PeakClass.Fundamental || line.cls === PeakClass.Resonance) &&
+          line.age >= 2 &&
+          k > 0.15
+        ) {
+          labels.push({
+            x,
+            frequency: line.frequency,
+            intensity: line.intensity * dim,
+            resonance: line.cls === PeakClass.Resonance,
+            primary: false,
+          });
+        }
       }
     }
 
-    this.drawLabels(labels, plotTop);
+    if (hasPrimary) {
+      const p = primary!;
+      const midi = mapper.frequencyToMidi(p.frequency);
+      if (midi >= this.lowMidi && midi <= this.highMidi) {
+        const x = (midi - this.lowMidi) * this.px;
+        const semitone = mod12(Math.round(midi) - mapper.madhyaSaMidi);
+        const k = Math.pow(p.intensity, 0.85);
+        const color = swaraColor(semitone, 60 + 8 * k);
+        // Column highlight behind the swara label at the bottom.
+        ctx.globalAlpha = 0.18 + 0.3 * k;
+        ctx.fillStyle = color;
+        const cx = (Math.round(midi) - this.lowMidi) * this.px;
+        ctx.fillRect(cx - this.px / 2, plotBottom, this.px, FOOTER_H);
+        ctx.globalAlpha = 1;
+        // The played note: bold, tall, glowing. Height and brightness still follow intensity.
+        this.strokeLine(
+          x,
+          plotBottom,
+          plotBottom - plotH * (0.45 + 0.55 * k),
+          color,
+          4 + 5 * k,
+          0.45 + 0.55 * k,
+          {
+            glow: 10 + 16 * k,
+            dashed: false,
+          },
+        );
+        labels.unshift({
+          x,
+          frequency: p.frequency,
+          intensity: p.intensity,
+          resonance: false,
+          primary: true,
+        });
+      }
+    }
+
+    this.drawLabels(labels, plotTop, view);
+  }
+
+  private strokeLine(
+    x: number,
+    bottom: number,
+    top: number,
+    color: string,
+    width: number,
+    alpha: number,
+    opts: { glow: number; dashed: boolean },
+  ): void {
+    const ctx = this.ctx;
+    ctx.globalAlpha = alpha;
+    const grad = ctx.createLinearGradient(0, top, 0, bottom);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(0.2, color);
+    grad.addColorStop(1, color);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    if (opts.glow > 0) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = opts.glow;
+    }
+    if (opts.dashed) ctx.setLineDash([3, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, bottom);
+    ctx.lineTo(x, top);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
   }
 
   // ---------------------------------------------------------------------------
@@ -207,69 +294,93 @@ export class SpectrumRenderer {
     return (scale.highSaptak - scale.lowSaptak + 1) * 12 + 1;
   }
 
-  private drawLabels(labels: { x: number; line: PitchLine }[], plotTop: number): void {
+  private drawLabels(labels: LabelItem[], plotTop: number, view: SpectrumViewMode): void {
     if (!this.scale || labels.length === 0) return;
     const ctx = this.ctx;
     const mapper = this.scale.mapper;
-    labels.sort((a, b) => b.line.intensity - a.line.intensity);
-    const placed: { x0: number; x1: number; row: number }[] = [];
-    for (const { x, line } of labels.slice(0, 6)) {
-      const reading = mapper.frequencyToSwara(line.frequency);
+    // Primary first, then by strength; keep the canvas readable.
+    const ordered = [
+      ...labels.filter((l) => l.primary),
+      ...labels
+        .filter((l) => !l.primary)
+        .sort((a, b) => b.intensity - a.intensity)
+        .slice(0, 3),
+    ];
+    const placed: { x0: number; x1: number; y0: number; y1: number }[] = [];
+    for (const item of ordered) {
+      const reading = mapper.frequencyToSwara(item.frequency);
       if (!reading) continue;
-      const resonance = line.cls === PeakClass.Resonance;
-      const w = LABEL_W;
-      const x0 = Math.min(this.width - w - 4, Math.max(4, x - w / 2));
-      let row = 0;
-      while (placed.some((p) => p.row === row && !(x0 + w < p.x0 || x0 > p.x1)) && row < 3) row++;
-      placed.push({ x0, x1: x0 + w, row });
-      const y = plotTop + 8 + row * (LABEL_H + 6);
-      const k = Math.pow(line.intensity, 0.85);
-      const color = resonance ? 'hsl(172, 34%, 62%)' : swaraColor(reading.swara.semitone, 66);
+      const big = item.primary;
+      const w = big ? BIG_LABEL_W : LABEL_W;
+      const h = big ? BIG_LABEL_H : LABEL_H;
+      const x0 = Math.min(this.width - w - 4, Math.max(4, item.x - w / 2));
+      let y = plotTop + (big && view === 'all' ? 22 : 8);
+      while (
+        placed.some((p) => !(x0 + w < p.x0 || x0 > p.x1) && !(y + h < p.y0 || y > p.y1)) &&
+        y < plotTop + 200
+      ) {
+        y += LABEL_H + 6;
+      }
+      placed.push({ x0, x1: x0 + w, y0: y, y1: y + h });
+      const k = Math.pow(Math.min(1, item.intensity), 0.85);
+      const color = item.resonance ? RESONANCE_COLOR : swaraColor(reading.swara.semitone, 66);
 
-      ctx.globalAlpha = 0.55 + 0.45 * k;
-      ctx.fillStyle = 'rgba(18, 17, 19, 0.86)';
-      roundRect(ctx, x0, y, w, LABEL_H, 9);
+      ctx.globalAlpha = big ? 1 : 0.5 + 0.4 * k;
+      if (big && view === 'all') {
+        ctx.fillStyle = color;
+        ctx.font = `700 10px ${this.uiFont}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('▼ YOUR NOTE', x0 + w / 2, y - 6);
+      }
+      ctx.fillStyle = 'rgba(18, 17, 19, 0.9)';
+      roundRect(ctx, x0, y, w, h, big ? 12 : 9);
       ctx.fill();
       ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = big ? 1.5 : 1;
       ctx.stroke();
 
       // Swara with komal / tivra / saptak marks.
+      const size = big ? 28 : 20;
       ctx.fillStyle = color;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
-      ctx.font = `600 20px ${this.displayFont}`;
+      ctx.font = `600 ${size}px ${this.displayFont}`;
       const text = reading.swara.short;
-      const tx = x0 + 10;
-      const ty = y + 22;
+      const tx = x0 + (big ? 14 : 10);
+      const ty = y + (big ? 32 : 22);
       ctx.fillText(text, tx, ty);
       const tw = ctx.measureText(text).width;
-      this.drawMarks(ctx, tx, ty, tw, 20, reading.swara.variant, reading.saptak.offset, color);
+      this.drawMarks(ctx, tx, ty, tw, size, reading.swara.variant, reading.saptak.offset, color);
 
-      ctx.font = `600 11px ${this.uiFont}`;
+      ctx.font = `600 ${big ? 13 : 11}px ${this.uiFont}`;
       ctx.fillStyle = this.colors.text;
       ctx.textAlign = 'right';
-      ctx.fillText(reading.western.label, x0 + w - 8, y + 18);
+      ctx.fillText(reading.western.label, x0 + w - 10, y + (big ? 22 : 18));
+      if (big) {
+        ctx.font = `500 10px ${this.uiFont}`;
+        ctx.fillStyle = this.colors.muted;
+        ctx.fillText(reading.saptak.name, x0 + w - 10, y + 36);
+      }
 
       ctx.textAlign = 'left';
       ctx.fillStyle = this.colors.muted;
-      ctx.font = `500 10px ${this.uiFont}`;
+      ctx.font = `500 ${big ? 11 : 10}px ${this.uiFont}`;
       const cents = Math.round(reading.cents);
       const centsText = `${cents > 0 ? '+' : cents < 0 ? '−' : '±'}${Math.abs(cents)}¢`;
       const detail = this.scale.showFrequencyLabels
-        ? `${line.frequency.toFixed(1)} Hz ${centsText}`
-        : resonance
+        ? `${item.frequency.toFixed(1)} Hz  ${centsText}`
+        : item.resonance
           ? 'resonance'
           : centsText;
-      ctx.fillText(detail, x0 + 10, y + 40);
+      ctx.fillText(detail, x0 + (big ? 14 : 10), y + (big ? 54 : 40));
       ctx.globalAlpha = 1;
 
-      // Connector
+      // Connector to the line.
       ctx.strokeStyle = color;
-      ctx.globalAlpha = 0.4 * k;
+      ctx.globalAlpha = big ? 0.7 : 0.35 * k;
       ctx.beginPath();
-      ctx.moveTo(x, y + LABEL_H);
-      ctx.lineTo(x, y + LABEL_H + 8);
+      ctx.moveTo(item.x, y + h);
+      ctx.lineTo(item.x, y + h + 10);
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
