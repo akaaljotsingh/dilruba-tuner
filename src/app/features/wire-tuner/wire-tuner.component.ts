@@ -28,6 +28,7 @@ import { ListenButtonComponent } from '../../shared/components/listen-button.com
 import { SwaraLabelComponent } from '../../shared/components/swara-label.component';
 import { TunerMeterComponent } from '../../shared/components/tuner-meter.component';
 import { CentsPipe, HzPipe } from '../../shared/pipes/frequency.pipes';
+import { scrollElementTo } from '../../shared/utils/scroll';
 
 const SELECTED_KEY = 'dilruba-sur-tuner.selected-string';
 /** Time a wire must stay perfectly tuned before it is ticked off. */
@@ -174,10 +175,7 @@ export class WireTunerComponent {
         const chip = strip.querySelector<HTMLElement>(`[data-id="${id}"]`);
         if (!chip) return;
         const left = chip.offsetLeft - (strip.clientWidth - chip.offsetWidth) / 2;
-        strip.scrollTo({
-          left,
-          behavior: untracked(() => this.settings.settings().reduceMotion) ? 'auto' : 'smooth',
-        });
+        scrollElementTo(strip, { left }, !untracked(() => this.settings.settings().reduceMotion));
       });
     });
 

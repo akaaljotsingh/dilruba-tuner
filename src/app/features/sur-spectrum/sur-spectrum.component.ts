@@ -22,6 +22,7 @@ import { IconComponent } from '../../shared/components/icon.component';
 import { ListenButtonComponent } from '../../shared/components/listen-button.component';
 import { SwaraLabelComponent } from '../../shared/components/swara-label.component';
 import { CentsPipe, HzPipe } from '../../shared/pipes/frequency.pipes';
+import { scrollElementTo } from '../../shared/utils/scroll';
 import { PrimaryNote, SpectrumRenderer, SpectrumScale, swaraColor } from './spectrum-renderer';
 
 const MIN_PX = 14;
@@ -223,10 +224,11 @@ export class SurSpectrumComponent {
       x > scroller.scrollLeft + scroller.clientWidth - margin
     ) {
       this.programmaticScroll = true;
-      scroller.scrollTo({
-        left: x - scroller.clientWidth / 2,
-        behavior: this.settings.settings().reduceMotion ? 'auto' : 'smooth',
-      });
+      scrollElementTo(
+        scroller,
+        { left: x - scroller.clientWidth / 2 },
+        !this.settings.settings().reduceMotion,
+      );
     }
   }
 

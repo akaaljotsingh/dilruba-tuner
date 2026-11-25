@@ -12,6 +12,7 @@ import { PwaService } from '../../core/pwa/pwa.service';
 import { IconComponent, IconName } from '../../shared/components/icon.component';
 import { LogoComponent } from '../../shared/components/logo.component';
 import { TonicPickerComponent } from '../../shared/components/tonic-picker.component';
+import { scrollElementTo } from '../../shared/utils/scroll';
 
 interface NavItem {
   readonly path: string;
@@ -43,7 +44,8 @@ export class MainLayoutComponent {
   constructor() {
     // The page scrolls inside <main> (app shell), so reset it on every navigation.
     const sub = inject(Router).events.subscribe((e) => {
-      if (e instanceof NavigationEnd) this.main()?.nativeElement.scrollTo({ top: 0 });
+      const main = this.main()?.nativeElement;
+      if (e instanceof NavigationEnd && main) scrollElementTo(main, { top: 0 });
     });
     inject(DestroyRef).onDestroy(() => sub.unsubscribe());
   }
