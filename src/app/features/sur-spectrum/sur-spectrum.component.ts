@@ -41,6 +41,7 @@ const MAX_PX = 72;
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sur-spectrum.component.html',
   styleUrl: './sur-spectrum.component.scss',
+  host: { '(document:keydown)': 'onKeydown($event)' },
 })
 export class SurSpectrumComponent {
   protected readonly engine = inject(AudioCaptureService);
@@ -55,7 +56,12 @@ export class SurSpectrumComponent {
   protected readonly follow = signal(true);
   protected readonly canvasUnsupported = signal(false);
   protected readonly view = computed(() => this.settings.settings().spectrumView);
-  private readonly viewportWidth = signal(0);
+  /** Phones in portrait get a vertical pitch axis; wider screens stay horizontal. */
+  protected readonly vertical = signal(false);
+  /** Full-screen mode (Fullscreen API where available, CSS overlay otherwise, e.g. iPhone). */
+  protected readonly immersive = signal(false);
+  /** Viewport length along the pitch axis (width when horizontal, height when vertical). */
+  private readonly viewportLength = signal(0);
 
   protected readonly pitch = this.engine.pitch;
   protected readonly reading = computed(() => {
@@ -80,10 +86,13 @@ export class SurSpectrumComponent {
   private readonly effectivePx = computed(() => {
     const range = this.saptakRange();
     const semis = (range.high - range.low + 1) * 12 + 1;
-    const fit = this.viewportWidth() / semis;
+    const len = this.viewportLength();
+    const fit = len / semis;
     const z = this.zoom();
-    // Narrow screens: keep labels readable and scroll horizontally.
-    return z > 0 ? z : Math.max(fit, this.viewportWidth() < 700 ? 26 : 18);
+    if (z > 0) return z;
+    // Keep swara rows / columns readable; scroll along the pitch axis if needed.
+    if (this.vertical()) return Math.max(fit, 30);
+    return Math.max(fit, len < 700 ? 26 : 18);
   });
 
   private readonly tracker = new PitchLineTracker();
@@ -102,6 +111,28 @@ export class SurSpectrumComponent {
   constructor() {
     const destroyRef = inject(DestroyRef);
     const releaseSpectrum = this.engine.useSpectrum();
+
+    // Orientation follows the screen: vertical on phones held upright.
+    const portraitPhone = globalThis.matchMedia?.('(max-width: 819px) and (orientation: portrait)');
+    if (portraitPhone) {
+      this.vertical.set(portraitPhone.matches);
+      const onChange = (e: MediaQueryListEvent) => this.vertical.set(e.matches);
+      portraitPhone.addEventListener('change', onChange);
+      destroyRef.onDestroy(() => portraitPhone.removeEventListener('change', onChange));
+    }
+
+    // Leaving browser fullscreen (Esc, back gesture) also leaves our full-screen layout.
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement && this.usedFullscreenApi) {
+        this.usedFullscreenApi = false;
+        this.immersive.set(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    destroyRef.onDestroy(() => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      void this.exitFullscreen();
+    });
     const unsubscribe = this.engine.onFrame((f) => this.onFrame(f));
 
     afterNextRender(() => {
@@ -119,7 +150,7 @@ export class SurSpectrumComponent {
         this.renderer?.invalidate();
         this.kick();
       });
-      this.viewportWidth.set(scroller.clientWidth);
+      this.viewportLength.set(this.vertical() ? scroller.clientHeight : scroller.clientWidth);
       // The renderer did not exist when the scale effect first ran – apply it now.
       untracked(() => this.applyScale());
       this.centreOnMadhya();
@@ -129,8 +160,22 @@ export class SurSpectrumComponent {
       });
     });
 
-    // Scale changes (Sa, A4, range, zoom, labels) rebuild the static layer.
+    // Scale changes (Sa, A4, range, zoom, labels, orientation) rebuild the static layer.
     effect(() => this.applyScale());
+
+    // Rotating the phone or entering full screen changes the layout: re-centre on the music.
+    effect(() => {
+      this.vertical();
+      this.immersive();
+      untracked(() => {
+        if (!this.renderer) return;
+        this.zoom.set(0);
+        requestAnimationFrame(() => {
+          this.layout();
+          this.centreOnMadhya();
+        });
+      });
+    });
 
     // Keep animating while listening; idle otherwise.
     effect(() => {
@@ -148,12 +193,13 @@ export class SurSpectrumComponent {
     const current = this.effectivePx();
     const next = Math.max(MIN_PX, Math.min(MAX_PX, current * factor));
     const scroller = this.scroller().nativeElement;
-    const centreRatio =
-      (scroller.scrollLeft + scroller.clientWidth / 2) / Math.max(1, scroller.scrollWidth);
+    const a = this.axis(scroller);
+    const centreRatio = (a.pos + a.client / 2) / Math.max(1, a.total);
     this.zoom.set(next);
     requestAnimationFrame(() => {
+      const b = this.axis(scroller);
       this.programmaticScroll = true;
-      scroller.scrollLeft = centreRatio * scroller.scrollWidth - scroller.clientWidth / 2;
+      this.setScroll(scroller, centreRatio * b.total - b.client / 2, false);
     });
   }
 
@@ -190,6 +236,47 @@ export class SurSpectrumComponent {
     this.kick();
   }
 
+  protected toggleFullscreen(): void {
+    if (this.immersive()) void this.exitFullscreen();
+    else void this.enterFullscreen();
+  }
+
+  protected onKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.immersive()) void this.exitFullscreen();
+  }
+
+  private usedFullscreenApi = false;
+
+  private async enterFullscreen(): Promise<void> {
+    this.immersive.set(true);
+    const root = document.documentElement as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    };
+    try {
+      if (root.requestFullscreen) {
+        await root.requestFullscreen({ navigationUI: 'hide' });
+        this.usedFullscreenApi = true;
+      } else if (root.webkitRequestFullscreen) {
+        await root.webkitRequestFullscreen();
+        this.usedFullscreenApi = true;
+      }
+    } catch {
+      // iPhone Safari and some WebViews refuse: the CSS full-screen layout still applies.
+    }
+  }
+
+  private async exitFullscreen(): Promise<void> {
+    this.immersive.set(false);
+    if (this.usedFullscreenApi && document.fullscreenElement) {
+      this.usedFullscreenApi = false;
+      try {
+        await document.exitFullscreen();
+      } catch {
+        /* already left */
+      }
+    }
+  }
+
   protected toggle(key: 'showHarmonics' | 'showFrequencyLabels'): void {
     this.settings.update({ [key]: !this.settings.settings()[key] });
   }
@@ -215,20 +302,14 @@ export class SurSpectrumComponent {
   private maybeFollow(frame: AnalysisFrameMessage): void {
     if (!this.renderer || !frame.active || frame.held || !frame.stable) return;
     if (performance.now() - this.lastUserScroll < 4000) return;
-    const x = this.renderer.xForFrequency(frame.frequency);
-    if (!Number.isFinite(x)) return;
+    const p = this.renderer.posForFrequency(frame.frequency);
+    if (!Number.isFinite(p)) return;
     const scroller = this.scroller().nativeElement;
-    const margin = scroller.clientWidth * 0.2;
-    if (
-      x < scroller.scrollLeft + margin ||
-      x > scroller.scrollLeft + scroller.clientWidth - margin
-    ) {
+    const a = this.axis(scroller);
+    const margin = a.client * 0.2;
+    if (p < a.pos + margin || p > a.pos + a.client - margin) {
       this.programmaticScroll = true;
-      scrollElementTo(
-        scroller,
-        { left: x - scroller.clientWidth / 2 },
-        !this.settings.settings().reduceMotion,
-      );
+      this.setScroll(scroller, p - a.client / 2, !this.settings.settings().reduceMotion);
     }
   }
 
@@ -277,32 +358,48 @@ export class SurSpectrumComponent {
 
   private applyScale(): void {
     const scale = this.currentScale();
+    this.renderer?.setOrientation(this.vertical() ? 'vertical' : 'horizontal');
     this.renderer?.setScale(scale);
     this.layout();
+  }
+
+  /** Scroll metrics along the pitch axis. */
+  private axis(el: HTMLElement): { pos: number; client: number; total: number } {
+    return this.vertical()
+      ? { pos: el.scrollTop, client: el.clientHeight, total: el.scrollHeight }
+      : { pos: el.scrollLeft, client: el.clientWidth, total: el.scrollWidth };
+  }
+
+  private setScroll(el: HTMLElement, value: number, smooth: boolean): void {
+    scrollElementTo(el, this.vertical() ? { top: value } : { left: value }, smooth);
   }
 
   private layout(): void {
     const renderer = this.renderer;
     if (!renderer) return;
     const scroller = this.scroller().nativeElement;
-    const vw = scroller.clientWidth;
-    if (vw !== this.viewportWidth()) this.viewportWidth.set(vw);
-    const width = renderer.contentWidth(
-      vw,
+    const vertical = untracked(() => this.vertical());
+    const len = vertical ? scroller.clientHeight : scroller.clientWidth;
+    if (len !== untracked(() => this.viewportLength())) this.viewportLength.set(len);
+    const content = renderer.contentLength(
+      len,
       untracked(() => this.currentScale()),
     );
-    renderer.resize(width, scroller.clientHeight, window.devicePixelRatio || 1);
+    const dpr = window.devicePixelRatio || 1;
+    if (vertical) renderer.resize(scroller.clientWidth, content, dpr);
+    else renderer.resize(content, scroller.clientHeight, dpr);
     this.kick();
   }
 
   private centreOnMadhya(): void {
     const scroller = this.scroller().nativeElement;
     requestAnimationFrame(() => {
-      const x =
-        this.renderer?.xForFrequency(this.settings.mapper().targetFrequency('pa', 0)) ?? NaN;
-      if (Number.isFinite(x) && scroller.scrollWidth > scroller.clientWidth) {
+      const p =
+        this.renderer?.posForFrequency(this.settings.mapper().targetFrequency('pa', 0)) ?? NaN;
+      const a = this.axis(scroller);
+      if (Number.isFinite(p) && a.total > a.client) {
         this.programmaticScroll = true;
-        scroller.scrollLeft = x - scroller.clientWidth / 2;
+        this.setScroll(scroller, p - a.client / 2, false);
       }
     });
   }

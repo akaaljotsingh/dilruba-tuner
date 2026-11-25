@@ -227,13 +227,51 @@ describe('Dilruba Sur Tuner app', () => {
     expect(el.querySelector('.segmented [aria-checked="true"]')?.textContent?.trim()).toBe('Focus');
     expect(el.querySelector('.legend')).toBeNull();
     expect(text(el.querySelector('.start'))).toContain('You will see the note you play');
-    const all = [...el.querySelectorAll<HTMLButtonElement>('.segmented button')].find(
-      (b) => text(b) === 'All sounds',
+    const all = [...el.querySelectorAll<HTMLButtonElement>('.segmented button')].find((b) =>
+      text(b).startsWith('All'),
     )!;
     all.click();
     await harness.fixture.whenStable();
     expect(text(el.querySelector('.legend'))).toContain('Your note');
     expect(TestBed.inject(SettingsStore).settings().spectrumView).toBe('all');
+  });
+
+  it('spectrum full screen: enters, covers the app, exits with the button or Esc', async () => {
+    const harness = await RouterTestingHarness.create('/spectrum');
+    const el = harness.routeNativeElement!;
+    const root = el.querySelector<HTMLElement>('.spectrum')!;
+    const btn = () => el.querySelector<HTMLButtonElement>('.tool-btn.fullscreen')!;
+    expect(btn().getAttribute('aria-label')).toBe('Full screen');
+    btn().click();
+    await harness.fixture.whenStable();
+    expect(root.classList).toContain('immersive');
+    expect(btn().getAttribute('aria-label')).toBe('Exit full screen');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await harness.fixture.whenStable();
+    expect(root.classList).not.toContain('immersive');
+    btn().click();
+    await harness.fixture.whenStable();
+    btn().click();
+    await harness.fixture.whenStable();
+    expect(root.classList).not.toContain('immersive');
+  });
+
+  it('spectrum is vertical on a phone held upright and switches when rotated', async () => {
+    let onChange: ((e: { matches: boolean }) => void) | null = null;
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: true, // portrait phone
+        addEventListener: (_: string, cb: (e: { matches: boolean }) => void) => (onChange = cb),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const harness = await RouterTestingHarness.create('/spectrum');
+    const root = harness.routeNativeElement!.querySelector('.spectrum')!;
+    expect(root.classList).toContain('vertical');
+    onChange!({ matches: false }); // rotated to landscape
+    await harness.fixture.whenStable();
+    expect(root.classList).not.toContain('vertical');
   });
 
   it('spectrum page loads and degrades gracefully without canvas support', async () => {

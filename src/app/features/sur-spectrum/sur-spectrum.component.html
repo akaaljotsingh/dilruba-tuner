@@ -1,4 +1,4 @@
-<div class="spectrum">
+<div class="spectrum" [class.vertical]="vertical()" [class.immersive]="immersive()">
   <header class="bar">
     <div class="bar-title">
       <h2>Sur Spectrum</h2>
@@ -52,7 +52,7 @@
           [attr.aria-pressed]="view() === 'all'"
           (click)="setView('all')"
         >
-          All sounds
+          <span class="label-long">All sounds</span><span class="label-short">All</span>
         </button>
       </div>
       <div class="tools">
@@ -100,6 +100,17 @@
         </button>
         <button
           type="button"
+          class="tool-btn fullscreen"
+          [class.on]="immersive()"
+          (click)="toggleFullscreen()"
+          [attr.aria-pressed]="immersive()"
+          [attr.aria-label]="immersive() ? 'Exit full screen' : 'Full screen'"
+          [attr.title]="immersive() ? 'Exit full screen' : 'Full screen'"
+        >
+          <app-icon [name]="immersive() ? 'collapse' : 'expand'" />
+        </button>
+        <button
+          type="button"
           class="tool-btn"
           aria-label="Zoom out"
           title="Zoom out"
@@ -136,7 +147,11 @@
         class="scroller"
         #scroller
         tabindex="0"
-        aria-label="Live pitch spectrum across saptaks. Scroll sideways for more octaves."
+        [attr.aria-label]="
+          vertical()
+            ? 'Live pitch spectrum, low notes at the bottom. Scroll up or down for more octaves.'
+            : 'Live pitch spectrum across saptaks. Scroll sideways for more octaves.'
+        "
         role="img"
       >
         <canvas #canvas></canvas>
