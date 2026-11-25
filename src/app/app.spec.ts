@@ -68,29 +68,29 @@ describe('Dilruba Sur Tuner app', () => {
   it('selects a string and shows its target', async () => {
     const harness = await RouterTestingHarness.create('/tuner');
     const el = harness.routeNativeElement!;
-    expect(text(el.querySelector('.t-name'))).toBe('Main 1 · Melody');
-    expect(text(el.querySelector('.t-facts'))).toContain('185.00 Hz');
+    expect(text(el.querySelector('.tl-name'))).toBe('Main 1 · Melody');
+    expect(text(el.querySelector('.tl-facts'))).toContain('F#3 · 185.00 Hz');
 
     const tarafChips = el.querySelectorAll<HTMLButtonElement>('.wire.taraf');
     expect(tarafChips.length).toBe(15);
     tarafChips[4].click(); // Taraf 5 = Pa
     await harness.fixture.whenStable();
-    expect(text(el.querySelector('.t-name'))).toBe('Taraf 5');
-    expect(text(el.querySelector('.t-facts'))).toContain('G# · octave 3');
+    expect(text(el.querySelector('.tl-name'))).toBe('Taraf 5');
+    expect(text(el.querySelector('.tl-facts'))).toContain('G#3');
   });
 
   it('opens a specific string from the ?string= query parameter', async () => {
     const harness = await RouterTestingHarness.create('/tuner?string=main-3');
-    expect(text(harness.routeNativeElement!.querySelector('.t-name'))).toBe('Main 3');
-    expect(text(harness.routeNativeElement!.querySelector('.t-facts'))).toContain('103.83 Hz');
+    expect(text(harness.routeNativeElement!.querySelector('.tl-name'))).toBe('Main 3');
+    expect(text(harness.routeNativeElement!.querySelector('.tl-facts'))).toContain('103.83 Hz');
   });
 
   it('changing Sa re-maps every target', async () => {
     const harness = await RouterTestingHarness.create('/tuner');
     TestBed.inject(SettingsStore).setTonic(2); // D
     await harness.fixture.whenStable();
-    const facts = text(harness.routeNativeElement!.querySelector('.t-facts'));
-    expect(facts).toContain('G · octave 3'); // Ma of D
+    const facts = text(harness.routeNativeElement!.querySelector('.tl-facts'));
+    expect(facts).toContain('G3'); // Ma of D
     expect(facts).toContain('196.00 Hz');
   });
 
@@ -173,15 +173,42 @@ describe('Dilruba Sur Tuner app', () => {
       throw new DOMException('denied', 'NotAllowedError');
     });
     const harness = await RouterTestingHarness.create('/tuner');
-    const btn = [...harness.routeNativeElement!.querySelectorAll('button')].find((b) =>
-      text(b).includes('Start Listening'),
-    )!;
+    const btn = harness.routeNativeElement!.querySelector<HTMLButtonElement>('.start')!;
+    expect(text(btn)).toContain('Tap to start tuning');
     btn.click();
     await new Promise((r) => setTimeout(r));
     await harness.fixture.whenStable();
     expect(text(harness.routeNativeElement!.querySelector('[role="alert"]'))).toContain(
       'Microphone access is blocked',
     );
+  });
+
+  it('swiping the reading left/right changes wire on touch screens', async () => {
+    const harness = await RouterTestingHarness.create('/tuner');
+    const el = harness.routeNativeElement!;
+    const stage = el.querySelector<HTMLElement>('.stage')!;
+    const swipe = (fromX: number, toX: number) => {
+      const init = { pointerType: 'touch', clientY: 300, bubbles: true } as PointerEventInit;
+      stage.dispatchEvent(new PointerEvent('pointerdown', { ...init, clientX: fromX }));
+      stage.dispatchEvent(new PointerEvent('pointerup', { ...init, clientX: toX }));
+    };
+    // The idle start button covers the reading; swipe on the stage padding instead.
+    swipe(300, 120); // swipe left → next wire
+    await harness.fixture.whenStable();
+    expect(text(el.querySelector('.tl-name'))).toBe('Main 2');
+    swipe(120, 300); // swipe right → previous wire
+    await harness.fixture.whenStable();
+    expect(text(el.querySelector('.tl-name'))).toBe('Main 1 · Melody');
+  });
+
+  it('offers "Tap to resume" after the app was paused in the background', async () => {
+    const harness = await RouterTestingHarness.create('/tuner');
+    const engine = TestBed.inject(AudioCaptureService);
+    await engine.start();
+    engine.status.set('paused');
+    await harness.fixture.whenStable();
+    expect(text(harness.routeNativeElement!.querySelector('.start'))).toContain('Tap to resume');
+    await engine.stop();
   });
 
   it('instrument page changes the number of sympathetic strings', async () => {
@@ -197,9 +224,10 @@ describe('Dilruba Sur Tuner app', () => {
   it('spectrum defaults to Focus view and can switch to All sounds', async () => {
     const harness = await RouterTestingHarness.create('/spectrum');
     const el = harness.routeNativeElement!;
-    expect(text(el.querySelector('.view-hint'))).toBe('Showing only the note you are playing');
+    expect(el.querySelector('.segmented [aria-checked="true"]')?.textContent?.trim()).toBe('Focus');
     expect(el.querySelector('.legend')).toBeNull();
-    const all = [...el.querySelectorAll<HTMLButtonElement>('.view-switch button')].find(
+    expect(text(el.querySelector('.start'))).toContain('You will see the note you play');
+    const all = [...el.querySelectorAll<HTMLButtonElement>('.segmented button')].find(
       (b) => text(b) === 'All sounds',
     )!;
     all.click();

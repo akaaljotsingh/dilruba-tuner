@@ -85,7 +85,7 @@ const RANGE_CENTS = 50;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--text-faint);
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
     .center-label {
       color: var(--in-tune);
@@ -93,7 +93,7 @@ const RANGE_CENTS = 50;
     }
     .track {
       position: relative;
-      height: 92px;
+      height: var(--meter-h, 92px);
       border-radius: var(--radius);
       overflow: hidden;
       background: linear-gradient(180deg, var(--surface-2), var(--surface));
@@ -180,8 +180,9 @@ const RANGE_CENTS = 50;
     }
     .scale {
       position: relative;
+      display: var(--meter-scale-display, block);
       height: 22px;
-      margin-top: 6px;
+      margin-top: 4px;
       font-size: 0.72rem;
       color: var(--text-faint);
       font-variant-numeric: tabular-nums;

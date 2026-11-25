@@ -1,42 +1,81 @@
 @use 'styles/variables' as v;
 
-.spectrum {
-  display: grid;
-  gap: 16px;
-  max-width: 1440px;
-}
-
-.page-head {
-  margin-bottom: 0;
-}
-
-.readout {
+// Single screen: the canvas takes all space left between header and bottom nav.
+:host {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+}
+
+.spectrum {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 8px;
+  @include v.above(v.$bp-md) {
+    padding: 24px 24px 16px;
+    gap: 14px;
+  }
+}
+
+.landscape-only {
+  display: none !important;
+}
+
+.desktop-only {
+  @include v.below(v.$bp-md) {
+    display: none !important;
+  }
+}
+
+// ---- Top bar ------------------------------------------------------------------
+.bar {
+  flex: none;
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px 32px;
-  padding: 16px 20px;
+  gap: 10px;
+  min-height: 40px;
 }
 
-.now {
+.bar-title {
   display: grid;
-  gap: 4px;
+  gap: 2px;
+  min-width: 0;
+  h2 {
+    font-size: 1.35rem;
+    line-height: 1.1;
+  }
 }
 
-.now-row {
+// ---- Playing now ----------------------------------------------------------------
+.readout {
+  flex: none;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 18px;
-  min-height: 64px;
+  gap: 14px;
+  padding: 10px 14px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
 }
 
 .now-swara {
-  font-size: 3.2rem;
+  flex: none;
+  min-width: 2.2em;
+  font-size: clamp(2.3rem, 6.5dvh, 3.2rem);
   font-weight: 600;
   line-height: 1;
+  padding: 0.1em 0 0.18em;
   color: var(--swara-color);
-  min-width: 2.4em;
   transition: color var(--dur);
   &.held {
     opacity: 0.6;
@@ -46,23 +85,24 @@
 .now-meta {
   display: grid;
   gap: 2px;
+  min-width: 0;
+  font-size: 0.92rem;
   .west {
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
+// Thin input-level bar along the bottom edge of the readout.
 .level {
-  display: grid;
-  gap: 6px;
-  min-width: 160px;
-  flex: 0 1 240px;
-}
-
-.level-bar {
-  height: 6px;
-  border-radius: 999px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
   background: var(--surface-3);
-  overflow: hidden;
   i {
     display: block;
     height: 100%;
@@ -71,38 +111,76 @@
   }
 }
 
+// ---- Visualisation ----------------------------------------------------------------
 .viz {
-  padding: 12px 0 8px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0 6px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--line);
   overflow: hidden;
 }
 
 .toolbar {
+  flex: none;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px 16px;
-  padding: 0 14px 10px;
+  gap: 8px;
+  padding: 0 10px 8px;
 }
 
-.view-switch {
+.segmented {
+  flex: none;
+}
+
+.tools {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px 14px;
+  gap: 4px;
+  .btn.on {
+    border-color: var(--accent);
+    color: var(--text);
+  }
 }
 
-.view-hint {
-  font-size: 0.8rem;
+.tool-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--text-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  --icon-size: 21px;
+  &:active {
+    transform: scale(0.94);
+  }
+  &.on {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
 }
 
 .legend {
+  flex: none;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  font-size: 0.78rem;
+  gap: 4px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 12px 8px;
+  font-size: 0.74rem;
   color: var(--text-muted);
+  white-space: nowrap;
+  &::-webkit-scrollbar {
+    display: none;
+  }
   span {
     display: inline-flex;
     align-items: center;
@@ -137,22 +215,16 @@
   }
 }
 
-.tools {
+.canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 220px;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  .btn.on {
-    border-color: var(--accent);
-    color: var(--text);
-  }
-  .zoom {
-    display: inline-flex;
-  }
 }
 
 .scroller {
-  position: relative;
-  height: clamp(320px, 58vh, 560px);
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
@@ -165,19 +237,67 @@
   canvas {
     display: block;
   }
-  .unsupported {
-    position: absolute;
-    inset: 0;
+}
+
+.unsupported {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+// Big start target over the (empty) canvas.
+.start {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  border: 0;
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  .start-ring {
+    width: clamp(80px, 14dvh, 116px);
+    height: clamp(80px, 14dvh, 116px);
+    border-radius: 50%;
     display: grid;
     place-items: center;
-    margin: 0;
-    padding: 24px;
-    text-align: center;
-    color: var(--text-muted);
+    background: var(--accent);
+    color: var(--accent-contrast);
+    box-shadow:
+      0 0 0 8px var(--accent-soft),
+      0 8px 28px rgba(232, 145, 58, 0.22);
+    animation: pulse-ring 2.4s infinite;
+    --icon-size: clamp(34px, 5.5dvh, 48px);
+  }
+  &:active .start-ring {
+    transform: scale(0.96);
+  }
+  .start-text {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 600;
+  }
+  .start-sub {
+    font-size: 0.78rem;
+    color: var(--text-faint);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start .start-ring {
+    animation: none;
   }
 }
 
 .range {
+  flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -194,7 +314,57 @@
 }
 
 .note {
+  flex: none;
   margin: 0;
   font-size: 0.82rem;
   max-width: 52rem;
+}
+
+// ---- Phone held sideways -------------------------------------------------------
+@media (orientation: landscape) and (max-height: 520px) {
+  .spectrum {
+    gap: 6px;
+    padding: 6px 12px 4px;
+  }
+  .bar {
+    display: none;
+  }
+  .readout {
+    padding: 4px 12px 8px;
+  }
+  .now-swara {
+    font-size: 2rem;
+  }
+  .viz {
+    padding-top: 6px;
+  }
+  .toolbar {
+    padding-bottom: 4px;
+  }
+  .canvas-wrap {
+    min-height: 150px;
+  }
+  .landscape-only {
+    display: grid !important;
+  }
+  .tool-btn.stop {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+}
+
+@media (max-height: 700px) and (orientation: portrait) {
+  .spectrum {
+    gap: 6px;
+    padding-top: 6px;
+  }
+  .bar-title h2 {
+    display: none;
+  }
+  .bar {
+    min-height: 36px;
+  }
+  .readout {
+    padding: 6px 12px 10px;
+  }
 }

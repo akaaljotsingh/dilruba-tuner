@@ -13,6 +13,7 @@ import {
 } from '@angular/core';
 import { AnalysisFrameMessage } from '../../core/audio/analysis-protocol';
 import { AudioCaptureService } from '../../core/audio/audio-capture.service';
+import { WakeLockService } from '../../core/device/wake-lock.service';
 import { approach } from '../../core/dsp/audio-smoother';
 import { PitchLineTracker } from '../../core/dsp/pitch-line-tracker';
 import { SettingsStore, SpectrumView } from '../../core/state/settings.store';
@@ -43,6 +44,7 @@ const MAX_PX = 72;
 export class SurSpectrumComponent {
   protected readonly engine = inject(AudioCaptureService);
   protected readonly settings = inject(SettingsStore);
+  private readonly wakeLock = inject(WakeLockService);
 
   private readonly scroller = viewChild.required<ElementRef<HTMLDivElement>>('scroller');
   private readonly canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
@@ -161,6 +163,25 @@ export class SurSpectrumComponent {
     } else {
       this.settings.update({ spectrumHighSaptak: Math.max(0, Math.min(3, r.high + delta)) });
     }
+  }
+
+  protected readonly needsTap = computed(() =>
+    ['idle', 'error', 'paused', 'suspended'].includes(this.engine.status()),
+  );
+  protected readonly startLabel = computed(() =>
+    this.engine.status() === 'paused' || this.engine.status() === 'suspended'
+      ? 'Tap to resume'
+      : 'Tap to start listening',
+  );
+
+  /** Big "Tap to start" – starts audio inside the tap (required on iOS). */
+  protected start(): void {
+    this.wakeLock.prime();
+    void this.engine.start();
+  }
+
+  protected stop(): void {
+    void this.engine.stop();
   }
 
   protected setView(view: SpectrumView): void {

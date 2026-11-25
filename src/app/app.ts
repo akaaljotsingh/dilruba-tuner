@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
+import { WakeLockService } from './core/device/wake-lock.service';
 import { SettingsStore } from './core/state/settings.store';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
 
@@ -11,6 +12,8 @@ import { MainLayoutComponent } from './layout/main-layout/main-layout.component'
 export class App {
   constructor() {
     const settings = inject(SettingsStore);
+    // Keeps the screen awake while listening (no-op where unsupported).
+    inject(WakeLockService);
     // Apply appearance preferences to the document root.
     effect(() => {
       const s = settings.settings();

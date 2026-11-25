@@ -7,7 +7,12 @@ body {
   background:
     radial-gradient(1200px 600px at 50% -200px, rgba(201, 164, 92, 0.07), transparent 70%),
     var(--bg);
-  background-attachment: fixed;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden; // the app shell scrolls inside <main>
 }
 
 // Splash markup inside <app-root> (index.html) is replaced once Angular boots.

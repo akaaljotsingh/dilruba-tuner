@@ -1,9 +1,13 @@
 @use 'styles/variables' as v;
 
+// App shell: header and bottom nav stay put; only <main> scrolls. Playing screens
+// (tuner, spectrum) fill exactly the space in between, so nothing needs scrolling.
 :host {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  height: 100vh; // fallback
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .skip {
@@ -21,8 +25,8 @@
 }
 
 .app-header {
-  position: sticky;
-  top: 0;
+  flex: none;
+  position: relative;
   z-index: 20;
   padding-top: var(--safe-top);
   background: color-mix(in srgb, var(--bg) 82%, transparent);
@@ -149,18 +153,19 @@
 
 main {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   outline: none;
-  padding-bottom: calc(var(--nav-h) + var(--safe-bottom));
-  @include v.above(v.$bp-lg) {
-    padding-bottom: 0;
-  }
 }
 
 .bottom-nav {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex: none;
+  position: relative;
   z-index: 20;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -188,5 +193,19 @@ main {
     &.active {
       color: var(--accent);
     }
+  }
+}
+
+// Phones held sideways: reclaim vertical space.
+@media (orientation: landscape) and (max-height: 520px) {
+  :host {
+    --header-h: 44px;
+    --nav-h: 46px;
+  }
+  .bottom-nav a {
+    flex-direction: row;
+    gap: 6px;
+    font-size: 0.72rem;
+    --icon-size: 18px;
   }
 }

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { RouterLink } from '@angular/router';
 import { AudioCaptureService } from '../../core/audio/audio-capture.service';
 import { MicrophonePermissionService } from '../../core/audio/microphone-permission.service';
+import { WakeLockService } from '../../core/device/wake-lock.service';
 import { NoiseFilterLevel } from '../../core/dsp/noise-filter';
 import { saptakByOffset } from '../../core/models/swara.model';
 import { MAX_A4, MIN_A4 } from '../../core/music/frequency-converter';
@@ -31,6 +32,7 @@ export class AppSettingsComponent {
   protected readonly pwa = inject(PwaService);
   protected readonly engine = inject(AudioCaptureService);
   protected readonly permissions = inject(MicrophonePermissionService);
+  protected readonly wakeLock = inject(WakeLockService);
 
   protected readonly s = this.store.settings;
   protected readonly limits = { MIN_A4, MAX_A4 };

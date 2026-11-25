@@ -33,6 +33,10 @@ export interface AppSettings {
   readonly showFrequencyLabels: boolean;
   readonly showHarmonics: boolean;
   readonly spectrumView: SpectrumView;
+  /** Keep the phone screen awake while listening (Screen Wake Lock API). */
+  readonly keepScreenOn: boolean;
+  /** Short vibration when a wire has been held in tune. */
+  readonly vibrateInTune: boolean;
   readonly theme: ThemeName;
   readonly accent: AccentName;
   readonly textScale: TextScale;
@@ -55,6 +59,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showFrequencyLabels: true,
   showHarmonics: true,
   spectrumView: 'focus',
+  keepScreenOn: true,
+  vibrateInTune: true,
   theme: 'charcoal',
   accent: 'saffron',
   textScale: 'normal',
@@ -104,6 +110,8 @@ export function sanitizeSettings(raw: unknown): AppSettings {
         : d.showFrequencyLabels,
     showHarmonics: typeof r['showHarmonics'] === 'boolean' ? r['showHarmonics'] : d.showHarmonics,
     spectrumView: oneOf(r['spectrumView'], ['focus', 'all'] as const, d.spectrumView),
+    keepScreenOn: typeof r['keepScreenOn'] === 'boolean' ? r['keepScreenOn'] : d.keepScreenOn,
+    vibrateInTune: typeof r['vibrateInTune'] === 'boolean' ? r['vibrateInTune'] : d.vibrateInTune,
     theme: oneOf(r['theme'], ['charcoal', 'midnight'] as const, d.theme),
     accent: oneOf(r['accent'], ['saffron', 'gold', 'rose'] as const, d.accent),
     textScale: oneOf(r['textScale'], ['normal', 'large'] as const, d.textScale),

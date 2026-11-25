@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { AudioCaptureService } from '../../core/audio/audio-capture.service';
+import { WakeLockService } from '../../core/device/wake-lock.service';
 import { IconComponent } from './icon.component';
 
 /** Start / stop the shared microphone engine. Must be a real button: audio starts in its click handler. */
@@ -44,6 +45,7 @@ import { IconComponent } from './icon.component';
 })
 export class ListenButtonComponent {
   protected readonly engine = inject(AudioCaptureService);
+  private readonly wakeLock = inject(WakeLockService);
   readonly compact = input(false);
   protected readonly on = computed(() => this.engine.status() === 'running');
   protected readonly label = computed(() => {
@@ -61,6 +63,7 @@ export class ListenButtonComponent {
   });
 
   protected toggle(): void {
+    if (!this.on()) this.wakeLock.prime(); // inside the tap, for gesture-strict browsers
     void this.engine.toggle();
   }
 }

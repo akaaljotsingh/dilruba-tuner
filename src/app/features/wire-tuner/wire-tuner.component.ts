@@ -4,15 +4,18 @@ import {
   computed,
   DestroyRef,
   effect,
+  ElementRef,
   inject,
   input,
   linkedSignal,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AudioCaptureService } from '../../core/audio/audio-capture.service';
 import { ReferenceToneService } from '../../core/audio/reference-tone.service';
+import { vibrate, WakeLockService } from '../../core/device/wake-lock.service';
 import { ResolvedString } from '../../core/models/string-configuration.model';
 import { TUNING_STATUS_LABELS } from '../../core/models/tuning-result.model';
 import { evaluateTuning } from '../../core/music/tuning-evaluator';
@@ -55,7 +58,11 @@ export class WireTunerComponent {
   protected readonly engine = inject(AudioCaptureService);
   protected readonly instrument = inject(InstrumentStore);
   protected readonly settings = inject(SettingsStore);
+  private readonly wakeLock = inject(WakeLockService);
   protected readonly tone = inject(ReferenceToneService);
+
+  private readonly strip = viewChild<ElementRef<HTMLElement>>('strip');
+  private swipeStart: { x: number; y: number; t: number } | null = null;
 
   /** Optional `?string=main-1` query parameter. */
   readonly string = input<string | undefined>();
@@ -149,12 +156,78 @@ export class WireTunerComponent {
       if (now - this.perfectSince >= TUNED_HOLD_MS) {
         const key = tunedKey(target);
         untracked(() => {
-          if (!this.tunedKeys().has(key)) this.tunedKeys.update((set) => new Set(set).add(key));
+          if (!this.tunedKeys().has(key)) {
+            this.tunedKeys.update((set) => new Set(set).add(key));
+            // Hands are on the instrument: confirm by touch, not only on screen.
+            if (this.settings.settings().vibrateInTune) vibrate([35, 60, 35]);
+          }
         });
       }
     });
 
+    // Keep the selected wire visible in the strip (after Prev/Next or a swipe).
+    effect(() => {
+      const id = this.selectedId();
+      const strip = this.strip()?.nativeElement;
+      if (!strip) return;
+      requestAnimationFrame(() => {
+        const chip = strip.querySelector<HTMLElement>(`[data-id="${id}"]`);
+        if (!chip) return;
+        const left = chip.offsetLeft - (strip.clientWidth - chip.offsetWidth) / 2;
+        strip.scrollTo({
+          left,
+          behavior: untracked(() => this.settings.settings().reduceMotion) ? 'auto' : 'smooth',
+        });
+      });
+    });
+
     inject(DestroyRef).onDestroy(() => this.tone.stopNow());
+  }
+
+  /** The big round button replaces the reading whenever audio needs a tap to (re)start. */
+  protected readonly needsTap = computed(() =>
+    ['idle', 'error', 'paused', 'suspended'].includes(this.engine.status()),
+  );
+  protected readonly startLabel = computed(() =>
+    this.engine.status() === 'paused' || this.engine.status() === 'suspended'
+      ? 'Tap to resume'
+      : 'Tap to start tuning',
+  );
+
+  /** Big "Tap to start" button – starts audio inside the tap (required on iOS). */
+  protected start(): void {
+    this.wakeLock.prime();
+    void this.engine.start();
+  }
+
+  protected stop(): void {
+    void this.engine.stop();
+  }
+
+  // ---- Swipe left / right on the reading to change wire --------------------
+
+  protected onPointerDown(event: PointerEvent): void {
+    if (event.pointerType === 'mouse' || (event.target as HTMLElement).closest('button')) return;
+    this.swipeStart = { x: event.clientX, y: event.clientY, t: performance.now() };
+  }
+
+  protected onPointerUp(event: PointerEvent): void {
+    const start = this.swipeStart;
+    this.swipeStart = null;
+    if (!start) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (
+      Math.abs(dx) > 56 &&
+      Math.abs(dx) > Math.abs(dy) * 1.6 &&
+      performance.now() - start.t < 700
+    ) {
+      this.step(dx < 0 ? 1 : -1);
+    }
+  }
+
+  protected cancelSwipe(): void {
+    this.swipeStart = null;
   }
 
   protected select(id: string): void {

@@ -1,5 +1,12 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  inject,
+  viewChild,
+} from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AudioCaptureService } from '../../core/audio/audio-capture.service';
 import { PwaService } from '../../core/pwa/pwa.service';
 import { IconComponent, IconName } from '../../shared/components/icon.component';
@@ -31,6 +38,15 @@ interface NavItem {
 export class MainLayoutComponent {
   protected readonly pwa = inject(PwaService);
   protected readonly engine = inject(AudioCaptureService);
+  private readonly main = viewChild<ElementRef<HTMLElement>>('main');
+
+  constructor() {
+    // The page scrolls inside <main> (app shell), so reset it on every navigation.
+    const sub = inject(Router).events.subscribe((e) => {
+      if (e instanceof NavigationEnd) this.main()?.nativeElement.scrollTo({ top: 0 });
+    });
+    inject(DestroyRef).onDestroy(() => sub.unsubscribe());
+  }
 
   protected readonly nav: readonly NavItem[] = [
     { path: '/', label: 'Home', short: 'Home', icon: 'home', exact: true },

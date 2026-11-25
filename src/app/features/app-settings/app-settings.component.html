@@ -208,6 +208,48 @@
     </div>
   </section>
 
+  <!-- While playing -->
+  <section class="panel block">
+    <h3>While playing</h3>
+    <div class="toggles">
+      <label class="switch"
+        ><input
+          type="checkbox"
+          [checked]="s().keepScreenOn"
+          (change)="set('keepScreenOn', !s().keepScreenOn)"
+        />
+        Keep screen on while listening</label
+      >
+      <label class="switch"
+        ><input
+          type="checkbox"
+          [checked]="s().vibrateInTune"
+          (change)="set('vibrateInTune', !s().vibrateInTune)"
+        />
+        Vibrate when a wire is in tune</label
+      >
+    </div>
+    <p class="hint">
+      @switch (wakeLock.state()) {
+        @case ('on') {
+          Screen is being kept on right now.
+        }
+        @case ('unsupported') {
+          This browser cannot keep the screen on. On iPhone, update to iOS 16.4 or later; on
+          Android, use Chrome. You can also raise the phone's auto-lock time.
+        }
+        @case ('denied') {
+          The phone refused to keep the screen on (often battery saver). Turn off battery saver or
+          raise the auto-lock time.
+        }
+        @default {
+          The screen stays on only while the tuner is listening. Vibration works on Android; iPhone
+          browsers do not support it.
+        }
+      }
+    </p>
+  </section>
+
   <!-- Appearance -->
   <section class="panel block">
     <h3>Appearance</h3>

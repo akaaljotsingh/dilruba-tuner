@@ -66,6 +66,10 @@ $content-max: 1180px;
 
   --header-h: 60px;
   --nav-h: 64px;
+  @media (max-width: 559px) {
+    --header-h: 52px;
+    --nav-h: 60px;
+  }
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
 }

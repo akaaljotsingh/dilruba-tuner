@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { AudioCaptureService } from '../../core/audio/audio-capture.service';
 import { MicrophonePermissionService } from '../../core/audio/microphone-permission.service';
+import { WakeLockService } from '../../core/device/wake-lock.service';
 import { IconComponent } from './icon.component';
 
 /** Microphone readiness line plus an error / interruption banner when needed. */
@@ -9,7 +10,13 @@ import { IconComponent } from './icon.component';
   imports: [IconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="status" [attr.data-tone]="tone()" role="status" aria-live="polite">
+    <div
+      class="status"
+      [class.compact]="compact()"
+      [attr.data-tone]="tone()"
+      role="status"
+      aria-live="polite"
+    >
       <span class="dot"></span>
       <span>{{ text() }}</span>
     </div>
@@ -45,6 +52,10 @@ import { IconComponent } from './icon.component';
       gap: 8px;
       font-size: 0.85rem;
       color: var(--text-muted);
+    }
+    .status.compact {
+      font-size: 0.78rem;
+      white-space: nowrap;
     }
     .dot {
       width: 8px;
@@ -106,6 +117,9 @@ import { IconComponent } from './icon.component';
 export class AudioStatusComponent {
   protected readonly engine = inject(AudioCaptureService);
   private readonly permissions = inject(MicrophonePermissionService);
+  private readonly wakeLock = inject(WakeLockService);
+  /** Short labels for tight phone top bars. */
+  readonly compact = input(false);
 
   protected readonly tone = computed(() => {
     const s = this.engine.status();
@@ -123,12 +137,16 @@ export class AudioStatusComponent {
         : 'Microphone not supported in this browser';
     }
     switch (this.engine.status()) {
-      case 'running':
-        return 'Listening · audio stays on this device';
+      case 'running': {
+        const screen = this.wakeLock.state() === 'on' ? ' · screen stays on' : '';
+        return this.compact()
+          ? `Listening${screen}`
+          : `Listening${screen} · audio stays on this device`;
+      }
       case 'starting':
         return 'Starting microphone…';
       case 'paused':
-        return 'Paused while in background';
+        return this.compact() ? 'Paused' : 'Paused while in background';
       case 'suspended':
         return 'Audio interrupted';
       case 'error':
@@ -138,9 +156,9 @@ export class AudioStatusComponent {
           case 'granted':
             return 'Microphone ready';
           case 'denied':
-            return 'Microphone blocked in browser settings';
+            return this.compact() ? 'Mic blocked' : 'Microphone blocked in browser settings';
           default:
-            return 'Microphone permission will be requested';
+            return this.compact() ? 'Mic off' : 'Microphone permission will be requested';
         }
     }
   });

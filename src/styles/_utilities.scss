@@ -31,6 +31,18 @@ select {
   color: inherit;
 }
 
+// No double-tap-to-zoom delay on controls; no grey tap flash.
+a,
+button,
+select,
+label,
+[role='button'],
+[role='option'],
+[role='radio'] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
